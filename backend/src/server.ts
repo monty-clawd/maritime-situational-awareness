@@ -4,6 +4,7 @@ import { env } from './config/env'
 import { logger } from './services/logger'
 import { initWebsocket } from './websocket/server'
 import { redisClient } from './services/redis'
+import { startAISStream } from './services/aisstream'
 
 const server = createServer(app)
 const websocket = initWebsocket(server)
@@ -13,6 +14,7 @@ const start = async () => {
     await redisClient.connect()
     server.listen(env.PORT, () => {
       logger.info({ port: env.PORT }, 'Backend listening')
+      startAISStream()
     })
   } catch (err) {
     logger.error({ err }, 'Failed to start server')
