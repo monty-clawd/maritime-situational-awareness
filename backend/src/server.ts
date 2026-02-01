@@ -11,7 +11,12 @@ const websocket = initWebsocket(server)
 
 const start = async () => {
   try {
-    await redisClient.connect()
+    // Try to connect to Redis in background, but don't block startup (MVP can work in-memory)
+    redisClient.connect().then(
+      () => logger.info('Redis connected'),
+      (err) => logger.warn({ err }, 'Redis connection failed - running in memory mode')
+    )
+    
     server.listen(env.PORT, () => {
       logger.info({ port: env.PORT }, 'Backend listening')
       startAISStream()
