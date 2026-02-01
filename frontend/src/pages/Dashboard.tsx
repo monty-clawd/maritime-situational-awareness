@@ -4,6 +4,7 @@ import LayerControls from '@/components/LayerControls'
 import MapDisplay from '@/components/MapDisplay'
 import VesselPanel from '@/components/VesselPanel'
 import type { LayerKey, LayerVisibility } from '@/components/LayerControls'
+import type { Alert } from '@/types/maritime'
 
 export default function Dashboard() {
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
@@ -13,6 +14,38 @@ export default function Dashboard() {
     alerts: true,
   })
   const [selectedVessel, setSelectedVessel] = useState<number | null>(null)
+  const [alerts, setAlerts] = useState<Alert[]>([
+    {
+      id: 101,
+      mmsi: 366982330,
+      type: 'POSITION_DISCREPANCY',
+      severity: 'HIGH',
+      createdAt: new Date().toISOString(),
+      acknowledged: false,
+      acknowledgedAt: null,
+      details: { deltaMeters: 812, source: 'Radar vs AIS' },
+    },
+    {
+      id: 102,
+      mmsi: 477123900,
+      type: 'SIGNAL_GAP',
+      severity: 'MEDIUM',
+      createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      acknowledged: false,
+      acknowledgedAt: null,
+      details: { gapSeconds: 42 },
+    },
+    {
+      id: 103,
+      mmsi: 316114000,
+      type: 'GNSS_DRIFT',
+      severity: 'LOW',
+      createdAt: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
+      acknowledged: true,
+      acknowledgedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+      details: { driftMeters: 210 },
+    },
+  ])
 
   const handleLayerToggle = (layer: LayerKey) => {
     setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }))
@@ -20,6 +53,20 @@ export default function Dashboard() {
 
   const handleVesselSelect = (mmsi: number) => {
     setSelectedVessel(mmsi)
+  }
+
+  const handleAcknowledge = (id: number) => {
+    setAlerts((prev) =>
+      prev.map((alert) =>
+        alert.id === id
+          ? {
+              ...alert,
+              acknowledged: true,
+              acknowledgedAt: alert.acknowledgedAt ?? new Date().toISOString(),
+            }
+          : alert,
+      ),
+    )
   }
 
   return (
@@ -78,7 +125,7 @@ export default function Dashboard() {
         </div>
         <div className="grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
           <VesselPanel selectedVessel={selectedVessel} onSelect={handleVesselSelect} />
-          <AlertFeed />
+          <AlertFeed alerts={alerts} onAcknowledge={handleAcknowledge} />
         </div>
       </main>
     </div>

@@ -26,6 +26,7 @@ export interface Alert {
   type: string
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   createdAt: string
-  acknowledgedAt?: string
+  acknowledged: boolean
+  acknowledgedAt?: string | null
   details?: Record<string, unknown>
 }
