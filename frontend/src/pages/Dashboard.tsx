@@ -1,8 +1,22 @@
+import { useState } from 'react'
 import AlertFeed from '@/components/AlertFeed'
+import LayerControls from '@/components/LayerControls'
 import MapDisplay from '@/components/MapDisplay'
 import VesselPanel from '@/components/VesselPanel'
+import type { LayerKey, LayerVisibility } from '@/components/LayerControls'
 
 export default function Dashboard() {
+  const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
+    ais: true,
+    radar: true,
+    fused: true,
+    alerts: true,
+  })
+
+  const handleLayerToggle = (layer: LayerKey) => {
+    setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }))
+  }
+
   return (
     <div className="flex h-full flex-col gap-6 p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -16,8 +30,9 @@ export default function Dashboard() {
       </header>
       <main className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
+          <LayerControls layerVisibility={layerVisibility} onToggle={handleLayerToggle} />
           <div className="h-[55vh] min-h-[360px]">
-            <MapDisplay />
+            <MapDisplay layerVisibility={layerVisibility} />
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
