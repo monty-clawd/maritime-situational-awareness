@@ -1,0 +1,27 @@
+{
+  "name": "maritime-situational-awareness-mvp",
+  "version": "0.1.0",
+  "description": "Real-time maritime vessel tracking with AIS/GNSS integrity monitoring",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "fusion-engine"
+  ],
+  "scripts": {
+    "dev": "npm run dev:frontend & npm run dev:backend & npm run dev:fusion",
+    "dev:frontend": "npm -w frontend run dev",
+    "dev:backend": "npm -w backend run dev",
+    "dev:fusion": "npm -w fusion-engine run dev",
+    "build": "npm -w frontend run build && npm -w backend run build",
+    "test": "npm -w frontend run test && npm -w backend run test",
+    "db:migrate": "npm -w backend run db:migrate",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  }
+}
