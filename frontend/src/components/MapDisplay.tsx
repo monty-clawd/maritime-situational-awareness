@@ -19,12 +19,39 @@ export default function MapDisplay({ layerVisibility }: MapDisplayProps) {
   useEffect(() => {
     if (!mapContainer.current) return
 
+    // Maritime-focused map style with OpenStreetMap base
+    // Using a darker style better suited for maritime ops center
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [-20, 20],
-      zoom: 2.2,
-      attributionControl: false,
+      style: {
+        version: 8,
+        name: 'Maritime Dark',
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors',
+          },
+        },
+        layers: [
+          {
+            id: 'osm-tiles',
+            type: 'raster',
+            source: 'osm',
+            minzoom: 0,
+            maxzoom: 19,
+            paint: {
+              'raster-saturation': -0.5,
+              'raster-brightness-min': 0.1,
+              'raster-brightness-max': 0.5,
+            },
+          },
+        ],
+      },
+      center: [10, 54], // North Sea / Baltic - common maritime area
+      zoom: 4,
+      attributionControl: true,
     })
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
