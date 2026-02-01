@@ -10,6 +10,7 @@ type LayerVisibility = {
 
 type MapDisplayProps = {
   layerVisibility: LayerVisibility
+  onVesselClick?: (mmsi: number) => void
 }
 
 export default function MapDisplay({ layerVisibility }: MapDisplayProps) {

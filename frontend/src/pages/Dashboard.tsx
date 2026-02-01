@@ -12,9 +12,14 @@ export default function Dashboard() {
     fused: true,
     alerts: true,
   })
+  const [selectedVessel, setSelectedVessel] = useState<number | null>(null)
 
   const handleLayerToggle = (layer: LayerKey) => {
     setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }))
+  }
+
+  const handleVesselSelect = (mmsi: number) => {
+    setSelectedVessel(mmsi)
   }
 
   return (
@@ -32,7 +37,7 @@ export default function Dashboard() {
         <div className="flex flex-col gap-6">
           <LayerControls layerVisibility={layerVisibility} onToggle={handleLayerToggle} />
           <div className="h-[55vh] min-h-[360px]">
-            <MapDisplay layerVisibility={layerVisibility} />
+            <MapDisplay layerVisibility={layerVisibility} onVesselClick={handleVesselSelect} />
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
@@ -72,7 +77,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-          <VesselPanel />
+          <VesselPanel selectedVessel={selectedVessel} onSelect={handleVesselSelect} />
           <AlertFeed />
         </div>
       </main>
