@@ -10,6 +10,12 @@ export interface Position {
   confidence?: number
 }
 
+export interface TrackPosition {
+  timestamp: string
+  latitude: number
+  longitude: number
+}
+
 export interface Vessel {
   mmsi: number
   imo?: number
