@@ -13,24 +13,40 @@ Frontend: http://localhost:5173
 Backend API: http://localhost:3000
 
 ### Manual Setup
+
+> **Note:** This project uses **pnpm** as the package manager. Do not use npm or yarn.
+
 ```bash
-# Install dependencies
-npm install
+# Install pnpm if not already installed
+corepack enable pnpm
+
+# Install dependencies (from repo root)
+pnpm install
 
 # Setup environment
 cp backend/.env.example backend/.env
 cp fusion-engine/.env.example fusion-engine/.env
 
 # Start services
-npm run dev:frontend &
-npm run dev:backend &
-npm run dev:fusion
+pnpm run dev:frontend &
+pnpm run dev:backend &
+pnpm run dev:fusion
 ```
+
+## Package Manager
+
+This project uses **pnpm** for dependency management. Benefits include:
+- Faster installs with content-addressable storage
+- Strict dependency resolution (no phantom dependencies)
+- Better monorepo/workspace support
+- Disk space efficiency
+
+**Do not use npm or yarn** - the lockfile (`pnpm-lock.yaml`) is authoritative.
 
 ## Architecture
 
 - **Frontend:** React 18+ with TypeScript, Vite, Tailwind CSS, MapLibre GL JS
-- **Backend:** Node.js, Express, TypeScript, WebSocket, BetterAuth
+- **Backend:** Node.js, Express, TypeScript, WebSocket
 - **Fusion Engine:** Python 3.11+ with FilterPy for Kalman filter sensor fusion
 - **Database:** PostgreSQL 15+ with TimescaleDB
 - **Cache:** Redis
@@ -47,17 +63,22 @@ Read AGENTS.md before making changes.
 
 ### Build
 ```bash
-npm run build
+# Build all workspaces
+pnpm run build
+
+# Build specific workspace
+pnpm run -w backend build
+pnpm run -w frontend build
 ```
 
 ### Tests
 ```bash
-npm test
+pnpm test
 ```
 
 ### Database Migrations
 ```bash
-npm run db:migrate
+pnpm run db:migrate
 ```
 
 ### Production Builds
@@ -72,6 +93,7 @@ docker-compose build
 - Python 3.11+, FilterPy, asyncio
 - PostgreSQL 15+, TimescaleDB, Redis
 - Docker, Docker Compose
+- **pnpm** (package manager)
 
 ## Status
 
