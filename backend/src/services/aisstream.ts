@@ -3,6 +3,7 @@ import { env } from '../config/env'
 import { logger } from './logger'
 import type { Vessel } from '../types/maritime'
 import { broadcastVessel } from '../websocket/server'
+import { fusePosition } from './fusion'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
 const GLOBAL_BOUNDING_BOXES: BoundingBox[] = [[[-90, -180], [90, 180]]]
@@ -110,6 +111,7 @@ const handleMessage = (rawData: WebSocket.RawData) => {
 
   latestVessels.set(vessel.mmsi, vessel)
   broadcastVessel(vessel)
+  fusePosition(vessel.mmsi, 'AIS', parsed.latitude, parsed.longitude)
 }
 
 const clearReconnectTimer = () => {

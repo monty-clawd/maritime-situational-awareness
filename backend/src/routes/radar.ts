@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { fusePosition } from '../services/fusion'
 
 type RadarTrackPayload = {
   mmsi: number
@@ -38,6 +39,7 @@ router.post('/inject', (req, res) => {
   }
 
   console.log('Radar track received', radarTrack)
+  fusePosition(radarTrack.mmsi, 'RADAR', radarTrack.latitude, radarTrack.longitude)
   res.status(202).json({ status: 'accepted' })
 })
 
