@@ -1,5 +1,6 @@
 import type { Server } from 'http'
 import { WebSocketServer } from 'ws'
+import type { Vessel } from '../types/maritime'
 
 export type WebsocketMessage =
   | { type: 'vessel:update'; payload: unknown }
@@ -7,6 +8,13 @@ export type WebsocketMessage =
   | { type: 'heartbeat'; payload: { timestamp: string } }
 
 const HEARTBEAT_INTERVAL_MS = 15000
+
+let broadcastMessage: ((message: WebsocketMessage) => void) | null = null
+
+export const broadcastVessel = (vessel: Vessel) => {
+  if (!broadcastMessage) return
+  broadcastMessage({ type: 'vessel:update', payload: vessel })
+}
 
 export const initWebsocket = (server: Server) => {
   const wss = new WebSocketServer({ server, path: '/api/ws' })
@@ -31,6 +39,9 @@ export const initWebsocket = (server: Server) => {
   const close = () => {
     clearInterval(heartbeat)
     wss.close()
+    if (broadcastMessage === broadcast) {
+      broadcastMessage = null
+    }
   }
 
   const broadcast = (message: WebsocketMessage) => {
@@ -41,6 +52,8 @@ export const initWebsocket = (server: Server) => {
       }
     })
   }
+
+  broadcastMessage = broadcast
 
   return { wss, broadcast, close }
 }

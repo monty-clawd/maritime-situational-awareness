@@ -1,6 +1,8 @@
 import WebSocket from 'ws'
 import { env } from '../config/env'
 import { logger } from './logger'
+import type { Vessel } from '../types/maritime'
+import { broadcastVessel } from '../websocket/server'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
 const GLOBAL_BOUNDING_BOXES: BoundingBox[] = [[[-90, -180], [90, 180]]]
@@ -51,6 +53,7 @@ let socket: WebSocket | null = null
 let reconnectTimer: NodeJS.Timeout | null = null
 let reconnectAttempts = 0
 let hasStarted = false
+const latestVessels = new Map<number, Vessel>()
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -88,7 +91,25 @@ const handleMessage = (rawData: WebSocket.RawData) => {
     vesselName: getVesselName(message.Metadata),
   }
 
-  console.log(parsed)
+  if (typeof parsed.latitude !== 'number' || typeof parsed.longitude !== 'number') {
+    return
+  }
+
+  const vessel: Vessel = {
+    mmsi: parsed.mmsi,
+    name: parsed.vesselName,
+    lastPosition: {
+      timestamp: new Date().toISOString(),
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      speed: parsed.sog,
+      heading: positionReport.TrueHeading ?? parsed.cog,
+      source: 'AIS',
+    },
+  }
+
+  latestVessels.set(vessel.mmsi, vessel)
+  broadcastVessel(vessel)
 }
 
 const clearReconnectTimer = () => {
@@ -147,3 +168,5 @@ export const startAISStream = () => {
   hasStarted = true
   connect()
 }
+
+export const getVessels = (): Vessel[] => Array.from(latestVessels.values())
