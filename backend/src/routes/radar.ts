@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { fusePosition } from '../services/fusion'
+import { fusePosition } from '../services/fusion.js'
 
 type RadarTrackPayload = {
   mmsi: number

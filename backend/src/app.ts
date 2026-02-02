@@ -1,11 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
-import pinoHttp from 'pino-http'
-import apiRoutes from './routes'
-import { env } from './config/env'
-import { logger } from './services/logger'
-import { errorHandler, notFound } from './middleware/errorHandler'
+import { pinoHttp } from 'pino-http'
+import apiRoutes from './routes/index.js'
+import { env } from './config/env.js'
+import { logger } from './services/logger.js'
+import { errorHandler, notFound } from './middleware/errorHandler.js'
 
 const app = express()
 

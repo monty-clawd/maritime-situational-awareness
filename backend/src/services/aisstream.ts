@@ -1,9 +1,9 @@
 import WebSocket from 'ws'
-import { env } from '../config/env'
-import { logger } from './logger'
-import type { Vessel } from '../types/maritime'
-import { broadcastVessel } from '../websocket/server'
-import { fusePosition } from './fusion'
+import { env } from '../config/env.js'
+import { logger } from './logger.js'
+import type { Vessel } from '../types/maritime.js'
+import { broadcastVessel } from '../websocket/server.js'
+import { fusePosition } from './fusion.js'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
 const GLOBAL_BOUNDING_BOXES: BoundingBox[] = [[[-90, -180], [90, 180]]]

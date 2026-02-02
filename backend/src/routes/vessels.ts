@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getVessels } from '../services/aisstream'
+import { getVessels } from '../services/aisstream.js'
 
 const router = Router()
 

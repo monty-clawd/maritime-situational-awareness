@@ -1,6 +1,6 @@
 import type { Server } from 'http'
 import { WebSocketServer } from 'ws'
-import type { Vessel } from '../types/maritime'
+import type { Vessel } from '../types/maritime.js'
 
 export type WebsocketMessage =
   | { type: 'vessel:update'; payload: unknown }

@@ -1,10 +1,10 @@
 import { Router } from 'express'
-import alerts from './alerts'
-import auth from './auth'
-import health from './health'
-import radar from './radar'
-import status from './status'
-import vessels from './vessels'
+import alerts from './alerts.js'
+import auth from './auth.js'
+import health from './health.js'
+import radar from './radar.js'
+import status from './status.js'
+import vessels from './vessels.js'
 
 const router = Router()
 

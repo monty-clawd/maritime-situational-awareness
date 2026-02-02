@@ -1,10 +1,10 @@
 import { createServer } from 'http'
-import app from './app'
-import { env } from './config/env'
-import { logger } from './services/logger'
-import { initWebsocket } from './websocket/server'
-import { redisClient } from './services/redis'
-import { startAISStream } from './services/aisstream'
+import app from './app.js'
+import { env } from './config/env.js'
+import { logger } from './services/logger.js'
+import { initWebsocket } from './websocket/server.js'
+import { redisClient } from './services/redis.js'
+import { startAISStream } from './services/aisstream.js'
 
 const server = createServer(app)
 const websocket = initWebsocket(server)

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import type { Alert } from '../types/maritime'
+import type { Alert } from '../types/maritime.js'
 
 const router = Router()
 

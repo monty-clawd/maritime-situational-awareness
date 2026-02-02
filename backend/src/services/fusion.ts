@@ -1,7 +1,7 @@
-import type { Vessel } from '../types/maritime'
-import { detectDiscrepancy } from './discrepancy'
-import { logger } from './logger'
-import { broadcastFusedVessel } from '../websocket/server'
+import type { Vessel } from '../types/maritime.js'
+import { detectDiscrepancy } from './discrepancy.js'
+import { logger } from './logger.js'
+import { broadcastFusedVessel } from '../websocket/server.js'
 
 type FusionSource = 'AIS' | 'RADAR'
 

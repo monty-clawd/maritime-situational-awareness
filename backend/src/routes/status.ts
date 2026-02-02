@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { pool } from '../db/pool'
-import { redisClient } from '../services/redis'
+import { pool } from '../db/pool.js'
+import { redisClient } from '../services/redis.js'
 
 type StatusState = 'ONLINE' | 'OFFLINE' | 'DEGRADED'
 
