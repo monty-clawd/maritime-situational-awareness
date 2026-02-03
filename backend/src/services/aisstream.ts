@@ -411,8 +411,23 @@ const scheduleReconnect = () => {
   logger.warn({ delayMs: delay }, 'AISStream disconnected; scheduling reconnect')
   reconnectTimer = setTimeout(connect, delay)
 }
+const MAX_AGE_MS = 10 * 60 * 1000 // 10 minutes
 
-const connect = () => {
+const pruneStaleVessels = () => {
+  const now = Date.now()
+  let prunedCount = 0
+  for (const [mmsi, vessel] of latestVessels.entries()) {
+    if (vessel.lastPosition && new Date(vessel.lastPosition.timestamp).getTime() < now - MAX_AGE_MS) {
+      latestVessels.delete(mmsi)
+      prunedCount++
+    }
+  }
+  if (prunedCount > 0) {
+    logger.info({ prunedCount, remaining: latestVessels.size }, 'Pruned stale vessels')
+  }
+}
+
+setInterval(pruneStaleVessels, 60_000)
   const apiKey = env.AISSTREAM_API_KEY
   logger.info({ hasKey: !!apiKey, keyPrefix: apiKey?.slice(0, 4) }, 'Attempting AISStream connection')
 
