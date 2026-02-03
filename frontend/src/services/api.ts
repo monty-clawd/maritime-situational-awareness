@@ -66,4 +66,16 @@ export const fetchLanes = async (): Promise<ShippingLane[]> => {
     return response.data
 }
 
+export interface WeatherInfo {
+  windSpeedKnots: number;
+  windDirection: number;
+  waveHeightMeters?: number;
+  temperature?: number;
+}
+
+export const fetchWeather = async (lat: number, lon: number): Promise<WeatherInfo> => {
+  const response = await api.get<WeatherInfo>('/api/environment', { params: { lat, lon } });
+  return response.data;
+}
+
 export default api

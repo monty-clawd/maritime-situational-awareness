@@ -57,33 +57,35 @@ export class BehaviorService {
 
   public detectDeviations(vessel: Vessel): Deviation[] {
     const deviations: Deviation[] = []
+    const pos = vessel.lastPosition
+    
+    if (!pos) return deviations
 
     // 1. Check Shipping Lanes
     for (const lane of SHIPPING_LANES) {
-      if (!vessel.lastPosition) continue
-      if (this.isInBox(vessel.lastPosition.longitude, vessel.lastPosition.latitude, lane.bounds)) {
+      if (this.isInBox(pos.longitude, pos.latitude, lane.bounds)) {
         // Course Check
-        if (vessel.lastPosition.heading !== undefined) {
-            const diff = Math.abs(vessel.lastPosition.heading - lane.direction)
+        if (pos.heading !== undefined) {
+            const diff = Math.abs(pos.heading - lane.direction)
             const normalizedDiff = diff > 180 ? 360 - diff : diff
             if (normalizedDiff > lane.tolerance) {
                 deviations.push({
                     type: 'COURSE_MISMATCH',
                     severity: 'MEDIUM',
-                    description: `Vessel moving ${vessel.lastPosition.heading?.toFixed(0)}° in ${lane.name} (expected ~${lane.direction}°)`,
-                    details: { expected: lane.direction, actual: vessel.lastPosition.heading }
+                    description: `Vessel moving ${pos.heading.toFixed(0)}° in ${lane.name} (expected ~${lane.direction}°)`,
+                    details: { expected: lane.direction, actual: pos.heading }
                 })
             }
         }
         
         // Speed Check
-        if (vessel.lastPosition.speed !== undefined) {
-             if (vessel.lastPosition.speed > lane.maxSpeed) {
+        if (pos.speed !== undefined) {
+             if (pos.speed > lane.maxSpeed) {
                 deviations.push({
                     type: 'SPEED_ANOMALY',
                     severity: 'MEDIUM',
-                    description: `Speed ${vessel.lastPosition.speed}kn exceeds max ${lane.maxSpeed}kn in ${lane.name}`,
-                    details: { max: lane.maxSpeed, actual: vessel.lastPosition.speed }
+                    description: `Speed ${pos.speed}kn exceeds max ${lane.maxSpeed}kn in ${lane.name}`,
+                    details: { max: lane.maxSpeed, actual: pos.speed }
                 })
              }
         }
@@ -92,14 +94,13 @@ export class BehaviorService {
 
     // 2. Check Loitering (Simplified: Speed < 0.5kn in Zone)
     for (const zone of NO_LOITERING_ZONES) {
-        if (!vessel.lastPosition) continue
-        if (this.isInBox(vessel.lastPosition.longitude, vessel.lastPosition.latitude, zone.bounds)) {
-            if (vessel.lastPosition.speed !== undefined && vessel.lastPosition.speed < 0.5) {
+        if (this.isInBox(pos.longitude, pos.latitude, zone.bounds)) {
+            if (pos.speed !== undefined && pos.speed < 0.5) {
                  deviations.push({
                     type: 'LOITERING',
                     severity: 'HIGH',
                     description: `Vessel loitering in ${zone.name}`,
-                    details: { zone: zone.name, speed: vessel.lastPosition.speed }
+                    details: { zone: zone.name, speed: pos.speed }
                 })
             }
         }
@@ -112,7 +113,7 @@ export class BehaviorService {
     const liveVessels = getVessels()
     const vessel = liveVessels.find(v => v.mmsi === mmsi)
     
-    if (!vessel) {
+    if (!vessel || !vessel.lastPosition) {
         throw new Error('Vessel not found')
     }
 
@@ -126,9 +127,9 @@ export class BehaviorService {
             
             Vessel MMSI: ${vessel.mmsi}
             Type: ${vessel.type ?? 'Unknown'}
-            Speed: ${vessel.lastPosition?.speed} kn
-            Course: ${vessel.lastPosition?.heading}°
-            Location: ${vessel.lastPosition?.latitude}, ${vessel.lastPosition?.longitude}
+            Speed: ${vessel.lastPosition.speed} kn
+            Course: ${vessel.lastPosition.heading}°
+            Location: ${vessel.lastPosition.latitude}, ${vessel.lastPosition.longitude}
             
             Detected Anomalies:
             ${JSON.stringify(deviations, null, 2)}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ActiveTargetsList from '@/components/ActiveTargetsList'
-import { addToWatchlist, removeFromWatchlist, analyzeVessel } from '@/services/api'
+import { addToWatchlist, removeFromWatchlist, analyzeVessel, fetchWeather, type WeatherInfo } from '@/services/api'
 import type { WatchlistEntry, Alert, AnalysisResult } from '@/types/maritime'
 import { formatKnots, formatLatLon } from '@/utils/format'
 
@@ -18,6 +18,7 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
   
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [weather, setWeather] = useState<WeatherInfo | null>(null)
 
   const selectedEntry = useMemo(
     () =>
@@ -30,7 +31,10 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
   useEffect(() => {
     setAnalysisResult(null)
     setActionError(null)
+    setWeather(null)
   }, [selectedVessel])
+
+  // Weather effect moved below
 
   const isTracked = selectedVessel !== null && watchlistEntries.some((vessel) => vessel.mmsi === selectedVessel)
 
@@ -83,6 +87,16 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
   const selectedAddedAt = selectedEntry?.addedAt
     ? new Date(selectedEntry.addedAt).toLocaleString()
     : '--'
+
+  useEffect(() => {
+    if (selectedPosition?.latitude && selectedPosition?.longitude) {
+        fetchWeather(selectedPosition.latitude, selectedPosition.longitude)
+            .then(setWeather)
+            .catch(() => setWeather(null))
+    } else {
+        setWeather(null)
+    }
+  }, [selectedPosition?.latitude, selectedPosition?.longitude])
 
   const integrityAlert = activeAlerts?.find((a) =>
     ['SPEED_ANOMALY', 'TELEPORT_ANOMALY', 'POSITION_MISMATCH'].includes(a.type),
@@ -166,6 +180,30 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
                 <p>{selectedAddedAt}</p>
               </div>
             </div>
+
+            {weather && (
+              <div className="mt-3 rounded border border-slate-700/50 bg-slate-900/40 p-3">
+                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-200/80">Local Weather</p>
+                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                    <div>
+                        <span className="text-slate-500">Wind: </span>
+                        {weather.windSpeedKnots} kn {weather.windDirection}°
+                    </div>
+                    {weather.waveHeightMeters !== undefined && (
+                        <div>
+                             <span className="text-slate-500">Waves: </span>
+                             {weather.waveHeightMeters} m
+                        </div>
+                    )}
+                     {weather.temperature !== undefined && (
+                        <div>
+                             <span className="text-slate-500">Temp: </span>
+                             {weather.temperature}°C
+                        </div>
+                    )}
+                 </div>
+              </div>
+            )}
             <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
               <span>Confidence</span>
               <span>{((selectedPosition?.confidence ?? 0) * 100).toFixed(0)}%</span>

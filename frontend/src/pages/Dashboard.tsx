@@ -14,6 +14,7 @@ export default function Dashboard() {
     fused: true,
     alerts: true,
     analysis: false,
+    weather: false,
   })
   const [selectedVessel, setSelectedVessel] = useState<number | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])

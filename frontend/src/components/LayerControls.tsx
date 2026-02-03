@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react'
 
-export type LayerKey = 'ais' | 'radar' | 'fused' | 'alerts' | 'analysis'
+export type LayerKey = 'ais' | 'radar' | 'fused' | 'alerts' | 'analysis' | 'weather'
 
 export type LayerVisibility = {
   ais: boolean
@@ -8,6 +8,7 @@ export type LayerVisibility = {
   fused: boolean
   alerts: boolean
   analysis: boolean
+  weather: boolean
 }
 
 type LayerControlsProps = {
@@ -21,6 +22,7 @@ const layers: Array<{ id: LayerKey; label: string; description: string }> = [
   { id: 'fused', label: 'Fused Tracks', description: 'Kalman-smoothed paths' },
   { id: 'alerts', label: 'Alerts', description: 'Integrity events' },
   { id: 'analysis', label: 'Analysis', description: 'Behavior analysis (Loitering)' },
+  { id: 'weather', label: 'Weather', description: 'Wind & Environment Overlay' },
 ]
 
 export default function LayerControls({ layerVisibility, onToggle }: LayerControlsProps) {

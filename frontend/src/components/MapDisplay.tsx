@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { fetchVessels, fetchLanes, getApiBaseUrl } from '@/services/api'
+import { fetchVessels, fetchLanes, fetchWeather, getApiBaseUrl, type WeatherInfo } from '@/services/api'
 import { MaritimeWebSocket } from '@/services/websocket'
 import type { Vessel, InterferenceZone, ShippingLane } from '@/types/maritime'
 
@@ -11,6 +11,7 @@ type LayerVisibility = {
   fused: boolean
   alerts: boolean
   analysis: boolean
+  weather: boolean
 }
 
 type MapDisplayProps = {
@@ -34,6 +35,9 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
   const [vesselsByMmsi, setVesselsByMmsi] = useState<Record<number, Vessel>>({})
   const [interferenceZones, setInterferenceZones] = useState<InterferenceZone[]>([])
   const [lanes, setLanes] = useState<ShippingLane[]>([])
+  const [weatherData, setWeatherData] = useState<WeatherInfo | null>(null)
+  const [weatherLocation, setWeatherLocation] = useState<[number, number] | null>(null)
+  const [isMapLoaded, setIsMapLoaded] = useState(false)
   
   // Refs for high-frequency data handling to avoid re-render storms
   const pendingUpdates = useRef<Record<number, Vessel>>({})
@@ -105,6 +109,26 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     }))
   }), [lanes])
 
+  const weatherGeoJson = useMemo(() => {
+    if (!weatherData || !weatherLocation) return { type: 'FeatureCollection' as const, features: [] }
+    return {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: weatherLocation
+        },
+        properties: {
+          windSpeed: weatherData.windSpeedKnots,
+          windDir: weatherData.windDirection,
+          waveHeight: weatherData.waveHeightMeters ?? 0,
+          label: `${weatherData.windSpeedKnots} kn`
+        }
+      }]
+    }
+  }, [weatherData, weatherLocation])
+
   useEffect(() => {
     onVesselClickRef.current = onVesselClick
   }, [onVesselClick])
@@ -112,6 +136,20 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
   useEffect(() => {
     onAlertRef.current = onAlert
   }, [onAlert])
+
+  useEffect(() => {
+    if (layerVisibility.weather && mapRef.current) {
+        // Fetch if enabled and no data, or maybe on drag end? 
+        // For MVP just fetch center once when enabled.
+        const center = mapRef.current.getCenter()
+        fetchWeather(center.lat, center.lng)
+            .then(data => {
+                setWeatherData(data)
+                setWeatherLocation([center.lng, center.lat])
+            })
+            .catch(err => console.warn('Failed to fetch weather', err))
+    }
+  }, [layerVisibility.weather])
 
   // Initialize Map
   useEffect(() => {
@@ -176,6 +214,8 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
 
     map.on('load', () => {
+      setIsMapLoaded(true)
+
       if (!map.hasImage('vessel-arrow')) {
         const imageData = drawVesselArrow('#38bdf8')
         if (!imageData) return
@@ -218,6 +258,41 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
                 'line-opacity': 0.5
             },
             layout: { visibility: layerVisibility.analysis ? 'visible' : 'none' }
+        })
+      }
+
+      if (!map.hasImage('wind-arrow')) {
+         const imageData = drawVesselArrow('#f9fafb') // Slate 50
+         if (imageData) map.addImage('wind-arrow', imageData, { pixelRatio: 2 })
+      }
+
+      if (!map.getSource('weather')) {
+        map.addSource('weather', { type: 'geojson', data: weatherGeoJson })
+      }
+
+      if (!map.getLayer('weather-icon')) {
+        map.addLayer({
+            id: 'weather-icon',
+            type: 'symbol',
+            source: 'weather',
+            layout: {
+                'icon-image': 'wind-arrow',
+                'icon-size': 0.5,
+                'icon-rotate': ['get', 'windDir'],
+                'icon-rotation-alignment': 'map',
+                'icon-allow-overlap': true,
+                'text-field': ['get', 'label'],
+                'text-font': ['Open Sans Bold'],
+                'text-size': 12,
+                'text-offset': [0, 1.5],
+                'text-anchor': 'top',
+                visibility: layerVisibility.weather ? 'visible' : 'none'
+            },
+            paint: {
+                'text-color': '#f9fafb',
+                'text-halo-color': '#0f172a',
+                'text-halo-width': 2
+            }
         })
       }
 
@@ -430,8 +505,10 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
 
   // Update Map Source (Efficiently)
   useEffect(() => {
+    if (!isMapLoaded) return
     const map = mapRef.current
     if (!map) return
+
     const source = map.getSource('vessels') as GeoJSONSource | undefined
     if (source) source.setData(vesselGeoJson)
 
@@ -440,7 +517,10 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     
     const lanesSource = map.getSource('lanes') as GeoJSONSource | undefined
     if (lanesSource) lanesSource.setData(lanesGeoJson)
-  }, [vesselGeoJson, interferenceGeoJson, lanesGeoJson])
+    
+    const weatherSource = map.getSource('weather') as GeoJSONSource | undefined
+    if (weatherSource) weatherSource.setData(weatherGeoJson)
+  }, [isMapLoaded, vesselGeoJson, interferenceGeoJson, lanesGeoJson, weatherGeoJson])
 
   // Update Layer Visibility
   useEffect(() => {
@@ -463,6 +543,9 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     }
     if (map.getLayer('lanes-line')) {
       map.setLayoutProperty('lanes-line', 'visibility', layerVisibility.analysis ? 'visible' : 'none')
+    }
+    if (map.getLayer('weather-icon')) {
+      map.setLayoutProperty('weather-icon', 'visibility', layerVisibility.weather ? 'visible' : 'none')
     }
   }, [layerVisibility])
 
