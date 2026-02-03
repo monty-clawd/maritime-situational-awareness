@@ -14,6 +14,7 @@ type SystemStatus = {
   debug?: {
     messageCount: number
     lastMessage: string | null
+    types: Record<string, number>
   }
 }
 
@@ -42,7 +43,8 @@ router.get('/', async (_req, res) => {
     lastUpdate: new Date().toISOString(),
     debug: {
       messageCount: aisStatus.messageCount,
-      lastMessage: aisStatus.lastMessageTime
+      lastMessage: aisStatus.lastMessageTime,
+      types: aisStatus.messageTypes
     }
   }
 

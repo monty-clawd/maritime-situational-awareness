@@ -212,12 +212,20 @@ const handleStaticDataMessage = (message: AisStreamMessage) => {
 
 let messageCount = 0
 let lastMessageTime: string | null = null
+const messageTypes: Record<string, number> = {}
 
 const handleMessage = (rawData: WebSocket.RawData) => {
   messageCount++
   lastMessageTime = new Date().toISOString()
   const payload = typeof rawData === 'string' ? rawData : rawData.toString()
   const message = parseMessage(payload)
+  
+  if (message?.MessageType) {
+    messageTypes[message.MessageType] = (messageTypes[message.MessageType] || 0) + 1
+  } else {
+    messageTypes['Unknown/Invalid'] = (messageTypes['Unknown/Invalid'] || 0) + 1
+  }
+
   if (!message) {
     return
   }
@@ -342,8 +350,9 @@ export const startAISStream = () => {
 }
 
 export const getVessels = (): Vessel[] => Array.from(latestVessels.values())
-export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null } => ({
+export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null; messageTypes: Record<string, number> } => ({
   connected: isConnected,
   messageCount,
   lastMessageTime,
+  messageTypes
 })
