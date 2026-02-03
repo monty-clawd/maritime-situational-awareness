@@ -321,10 +321,6 @@ const connect = () => {
       BoundingBoxes: GLOBAL_BOUNDING_BOXES,
       FilterMessageTypes: [
         'PositionReport',
-        'ShipStaticData',
-        'ShipStaticDataReport',
-        'StaticDataReport',
-        'StaticData',
       ],
     }
     socket?.send(JSON.stringify(subscription))
