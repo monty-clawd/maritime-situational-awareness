@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
+import { fetchVessels, getApiBaseUrl } from '@/services/api'
 import { MaritimeWebSocket } from '@/services/websocket'
 import type { Vessel } from '@/types/maritime'
 
@@ -194,10 +195,9 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
   }, [])
 
   useEffect(() => {
-    const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:3000'
-    const wsUrl =
-      (import.meta.env.VITE_WS_URL as string | undefined) ||
-      `${apiUrl.replace(/\/$/, '').replace(/^http/i, 'ws')}/api/ws`
+    const apiUrl = getApiBaseUrl()
+    const envWsUrl = (import.meta.env.VITE_WS_URL as string | undefined)?.trim()
+    const wsUrl = envWsUrl || `${apiUrl.replace(/\/$/, '').replace(/^http/i, 'ws')}/api/ws`
 
     const client = new MaritimeWebSocket(wsUrl, {
       onVesselUpdate: (vessel) => {
@@ -209,6 +209,27 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
 
     return () => {
       client.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+    fetchVessels()
+      .then((data) => {
+        if (!isActive) return
+        setVesselsByMmsi((prev) => {
+          const next = { ...prev }
+          data.forEach((vessel) => {
+            next[vessel.mmsi] = vessel
+          })
+          return next
+        })
+      })
+      .catch((error) => {
+        console.warn('Failed to load vessels from API.', error)
+      })
+    return () => {
+      isActive = false
     }
   }, [])
 

@@ -1,8 +1,17 @@
 import axios from 'axios'
 import type { Alert, Vessel, WatchlistEntry } from '@/types/maritime'
 
+const resolveApiBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+  if (envUrl) return envUrl.replace(/\/$/, '')
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin
+  return 'http://localhost:3000'
+}
+
+export const getApiBaseUrl = (): string => resolveApiBaseUrl()
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: resolveApiBaseUrl(),
   timeout: 10000,
 })
 
