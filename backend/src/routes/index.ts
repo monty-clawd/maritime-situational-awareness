@@ -9,6 +9,7 @@ import watchlist from './watchlist.js'
 import behavior from './behavior.js'
 import environment from './environment.js'
 import history from './history.js'
+import reports from './reports.js'
 
 const router = Router()
 
@@ -22,5 +23,6 @@ router.use('/watchlist', watchlist)
 router.use('/behavior', behavior)
 router.use('/environment', environment)
 router.use('/history', history)
+router.use('/reports', reports)
 
 export default router

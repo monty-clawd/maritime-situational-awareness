@@ -5,38 +5,34 @@
 **Target:** Maritime Situational Awareness MVP
 
 ## 1. Overview
-A tool to generate structured incident reports using AI. Operators can select a vessel or alerts and request a report, which the system drafts using the Gemini API based on available context (tracks, weather, alerts).
+A tool to automatically generate a structured incident report PDF based on a selected vessel's history and alerts. It uses the Gemini API to summarize the event.
 
 ## 2. User Stories
-- **As an Incident Manager**, I want to quickly generate a draft report for a "Suspicious Behavior" alert so I don't have to type everything manually.
-- **As an Operator**, I want the report to automatically include the vessel's details, location, and weather conditions at the time of the event.
+- **As an Incident Manager**, I want to click one button to generate a PDF report for a suspicious vessel event, including map snapshots and a text summary.
 
 ## 3. Functional Requirements
-1.  **Report Trigger:**
-    - Button in `VesselPanel` or `TimelinePanel`: "Generate Report".
-    - Optional: Select specific alerts to include.
-2.  **AI Drafting:**
-    - Backend endpoint `POST /api/reports/generate` receiving context (mmsi, timeframe).
-    - Construct prompt for Gemini: "Write a maritime incident report for vessel [Name] (MMSI: [ID]). Context: [Alerts], [Positions], [Weather]. Format: Standard VTS Report."
-    - Return generated markdown/text.
-3.  **Review & Edit:**
-    - Display the draft in a modal/panel.
-    - Allow the operator to edit the text.
-4.  **Export:**
-    - "Download PDF" (or simple Print to PDF via browser for MVP) or "Save to Log".
+1.  **Report Generation:**
+    - Input: Vessel MMSI, Time Range.
+    - Output: PDF Document.
+2.  **AI Summarization:**
+    - Use Google Gemini (via `generative-ai` SDK) to generate a natural language summary of the vessel's track and any anomalies/alerts.
+3.  **Content:**
+    - Vessel Details (Name, Type, Flag).
+    - Map Snapshot (static image of the track).
+    - Event Log (Table of alerts).
+    - AI Summary.
 
 ## 4. Technical Specifications
 - **Backend:**
-    - `POST /api/reports/generate`:
-        - Fetch vessel details, recent alerts, and weather.
-        - Call `GeminiService.generateReport(context)`.
-        - Return `{ draft: string }`.
+    - Create `reports.ts` service.
+    - Integration with `pdfkit` or similar for PDF generation.
+    - Integration with `GoogleGenerativeAI` for summarization.
+    - Endpoint: `POST /api/reports/generate`.
 - **Frontend:**
-    - `ReportModal.tsx`: Text area for the draft, "Generate" button (loading state), "Download" button.
-    - Integration with `VesselPanel` actions.
+    - Add "Generate Report" button to `TimelinePanel` or `VesselPanel`.
+    - Handle PDF download blob.
 
 ## 5. Acceptance Criteria
-- [ ] "Generate Report" button is available for a selected vessel.
-- [ ] Clicking it calls the backend, which queries Gemini.
-- [ ] A sensible incident report is displayed (including Vessel Name, Time, Location, Summary).
-- [ ] The user can edit the text.
+- [ ] Clicking "Generate Report" triggers a backend process.
+- [ ] Backend calls Gemini to summarize the track data.
+- [ ] A PDF is downloaded containing the summary and vessel details.

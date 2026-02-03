@@ -100,4 +100,34 @@ export const fetchHistory = async (mmsi: number, start?: Date, end?: Date): Prom
   return response.data
 }
 
+export const generateReport = async (context: {
+  mmsi: number
+  vesselName?: string
+  lat: number
+  lon: number
+  time?: string
+  alerts?: string[]
+  weather?: string
+}): Promise<{ report: string }> => {
+  // This is the old Markdown report endpoint - keeping for compatibility if needed, 
+  // but we are moving to PDF.
+  const response = await api.post<{ report: string }>('/api/reports/generate-text', context)
+  return response.data
+}
+
+export const generatePDFReport = async (data: {
+  mmsi: string
+  vesselName: string
+  vesselType?: string
+  flag?: string
+  startDate: string
+  endDate: string
+  events: any[]
+}): Promise<Blob> => {
+  const response = await api.post('/api/reports/generate', data, {
+    responseType: 'blob'
+  })
+  return response.data
+}
+
 export default api

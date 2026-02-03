@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ActiveTargetsList from '@/components/ActiveTargetsList'
+import ReportModal from '@/components/ReportModal'
 import { addToWatchlist, removeFromWatchlist, analyzeVessel, fetchWeather, type WeatherInfo } from '@/services/api'
 import type { WatchlistEntry, Alert, AnalysisResult } from '@/types/maritime'
 import { formatKnots, formatLatLon } from '@/utils/format'
@@ -20,6 +21,7 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [weather, setWeather] = useState<WeatherInfo | null>(null)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   const selectedEntry = useMemo(
     () =>
@@ -33,9 +35,8 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
     setAnalysisResult(null)
     setActionError(null)
     setWeather(null)
+    setIsReportModalOpen(false)
   }, [selectedVessel])
-
-  // Weather effect moved below
 
   const isTracked = selectedVessel !== null && watchlistEntries.some((vessel) => vessel.mmsi === selectedVessel)
 
@@ -102,6 +103,12 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
   const integrityAlert = activeAlerts?.find((a) =>
     ['SPEED_ANOMALY', 'TELEPORT_ANOMALY', 'POSITION_MISMATCH'].includes(a.type),
   )
+
+  const reportAlerts: string[] = []
+  if (integrityAlert) reportAlerts.push(`${integrityAlert.type}: ${integrityAlert.details}`)
+  if (analysisResult?.deviations) {
+    analysisResult.deviations.forEach(d => reportAlerts.push(`Behavior: ${d.description}`))
+  }
 
   return (
     <section className="flex h-full flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
@@ -264,6 +271,14 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
               >
                 {isAnalyzing ? 'Thinking...' : 'Analyze'}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(true)}
+                className="flex-1 rounded-full border border-slate-500/60 bg-slate-600/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-200 hover:border-slate-300 transition"
+              >
+                Report
+              </button>
               
               <button
                 type="button"
@@ -273,6 +288,22 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
                 History
               </button>
             </div>
+
+            {/* Report Modal */}
+            {selectedPosition && (
+              <ReportModal 
+                isOpen={isReportModalOpen} 
+                onClose={() => setIsReportModalOpen(false)}
+                vessel={{
+                    mmsi: selectedVessel,
+                    name: selectedName,
+                    latitude: selectedPosition.latitude,
+                    longitude: selectedPosition.longitude
+                }}
+                weather={weather}
+                alerts={reportAlerts}
+              />
+            )}
           </>
         )}
       </div>
