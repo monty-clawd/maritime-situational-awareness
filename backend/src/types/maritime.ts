@@ -21,6 +21,8 @@ export interface Vessel {
   width?: number
   destination?: string
   lastPosition?: Position
+  isLoitering?: boolean
+  firstStationaryTime?: string
 }
 
 export interface Alert {

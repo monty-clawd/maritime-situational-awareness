@@ -6,6 +6,7 @@ import radar from './radar.js'
 import status from './status.js'
 import vessels from './vessels.js'
 import watchlist from './watchlist.js'
+import behavior from './behavior.js'
 
 const router = Router()
 
@@ -16,5 +17,6 @@ router.use('/alerts', alerts)
 router.use('/radar', radar)
 router.use('/status', status)
 router.use('/watchlist', watchlist)
+router.use('/behavior', behavior)
 
 export default router

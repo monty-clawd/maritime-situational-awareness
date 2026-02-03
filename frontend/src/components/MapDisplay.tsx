@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { fetchVessels, getApiBaseUrl } from '@/services/api'
+import { fetchVessels, fetchLanes, getApiBaseUrl } from '@/services/api'
 import { MaritimeWebSocket } from '@/services/websocket'
-import type { Vessel, InterferenceZone } from '@/types/maritime'
+import type { Vessel, InterferenceZone, ShippingLane } from '@/types/maritime'
 
 type LayerVisibility = {
   ais: boolean
   radar: boolean
   fused: boolean
   alerts: boolean
+  analysis: boolean
 }
 
 type MapDisplayProps = {
@@ -32,6 +33,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
   // React state for UI sync (active targets list, etc)
   const [vesselsByMmsi, setVesselsByMmsi] = useState<Record<number, Vessel>>({})
   const [interferenceZones, setInterferenceZones] = useState<InterferenceZone[]>([])
+  const [lanes, setLanes] = useState<ShippingLane[]>([])
   
   // Refs for high-frequency data handling to avoid re-render storms
   const pendingUpdates = useRef<Record<number, Vessel>>({})
@@ -57,6 +59,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
             mmsi: vessel.mmsi,
             heading: vessel.lastPosition?.heading ?? 0,
             name: vessel.name ?? '',
+            isLoitering: vessel.isLoitering ?? false,
           },
         })),
     }),
@@ -64,7 +67,6 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
   )
 
   const interferenceGeoJson = useMemo(() => {
-    // Simple point representation for now
     return {
       type: 'FeatureCollection' as const,
       features: interferenceZones.map((zone, i) => ({
@@ -81,6 +83,27 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
       })),
     }
   }, [interferenceZones])
+
+  const lanesGeoJson = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: lanes.map((lane) => ({
+        type: 'Feature' as const,
+        geometry: {
+            type: 'Polygon' as const,
+            coordinates: [[
+                [lane.bounds.minLon, lane.bounds.minLat],
+                [lane.bounds.maxLon, lane.bounds.minLat],
+                [lane.bounds.maxLon, lane.bounds.maxLat],
+                [lane.bounds.minLon, lane.bounds.maxLat],
+                [lane.bounds.minLon, lane.bounds.minLat]
+            ]]
+        },
+        properties: {
+            name: lane.name,
+            direction: lane.direction
+        }
+    }))
+  }), [lanes])
 
   useEffect(() => {
     onVesselClickRef.current = onVesselClick
@@ -145,8 +168,8 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
           },
         ],
       },
-      center: [2.5, 54], // Centered on North Sea
-      zoom: 5,
+      center: [-123.0, 48.3], // Centered on Salish Sea (near mock data)
+      zoom: 8,
       attributionControl: true,
     })
 
@@ -165,10 +188,64 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
         map.addImage('vessel-arrow-selected', imageData, { pixelRatio: 2 })
       }
 
+      // Lanes Source & Layers
+      if (!map.getSource('lanes')) {
+        map.addSource('lanes', { type: 'geojson', data: lanesGeoJson })
+      }
+      
+      if (!map.getLayer('lanes-fill')) {
+        map.addLayer({
+            id: 'lanes-fill',
+            type: 'fill',
+            source: 'lanes',
+            paint: {
+                'fill-color': '#10b981', // Emerald 500
+                'fill-opacity': 0.1
+            },
+            layout: { visibility: layerVisibility.analysis ? 'visible' : 'none' }
+        })
+      }
+      
+       if (!map.getLayer('lanes-line')) {
+        map.addLayer({
+            id: 'lanes-line',
+            type: 'line',
+            source: 'lanes',
+            paint: {
+                'line-color': '#34d399', // Emerald 400
+                'line-width': 1,
+                'line-dasharray': [2, 2],
+                'line-opacity': 0.5
+            },
+            layout: { visibility: layerVisibility.analysis ? 'visible' : 'none' }
+        })
+      }
+
       if (!map.getSource('vessels')) {
         map.addSource('vessels', {
           type: 'geojson',
           data: vesselGeoJson,
+        })
+      }
+
+      if (!map.getLayer('loitering-halo')) {
+        map.addLayer({
+          id: 'loitering-halo',
+          type: 'circle',
+          source: 'vessels',
+          paint: {
+            'circle-radius': 30,
+            'circle-color': '#facc15',
+            'circle-opacity': 0.4,
+            'circle-blur': 0.4,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fde047',
+            'circle-stroke-opacity': 0.6,
+          },
+          filter: ['==', ['get', 'isLoitering'], true],
+          layout: {
+            visibility: layerVisibility.analysis ? 'visible' : 'none',
+          },
         })
       }
 
@@ -338,6 +415,14 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
       .catch((error) => {
         console.warn('Failed to load vessels from API.', error)
       })
+      
+    fetchLanes()
+      .then((data) => {
+          if (!isActive) return
+          setLanes(data)
+      })
+      .catch(console.warn)
+
     return () => {
       isActive = false
     }
@@ -352,7 +437,10 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
 
     const interferenceSource = map.getSource('interference') as GeoJSONSource | undefined
     if (interferenceSource) interferenceSource.setData(interferenceGeoJson)
-  }, [vesselGeoJson, interferenceGeoJson])
+    
+    const lanesSource = map.getSource('lanes') as GeoJSONSource | undefined
+    if (lanesSource) lanesSource.setData(lanesGeoJson)
+  }, [vesselGeoJson, interferenceGeoJson, lanesGeoJson])
 
   // Update Layer Visibility
   useEffect(() => {
@@ -367,7 +455,16 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     if (map.getLayer('interference-zones')) {
       map.setLayoutProperty('interference-zones', 'visibility', layerVisibility.alerts ? 'visible' : 'none')
     }
-  }, [layerVisibility.ais, layerVisibility.alerts])
+    if (map.getLayer('loitering-halo')) {
+      map.setLayoutProperty('loitering-halo', 'visibility', layerVisibility.analysis ? 'visible' : 'none')
+    }
+    if (map.getLayer('lanes-fill')) {
+      map.setLayoutProperty('lanes-fill', 'visibility', layerVisibility.analysis ? 'visible' : 'none')
+    }
+    if (map.getLayer('lanes-line')) {
+      map.setLayoutProperty('lanes-line', 'visibility', layerVisibility.analysis ? 'visible' : 'none')
+    }
+  }, [layerVisibility])
 
   // Update Selection Filter
   useEffect(() => {
@@ -386,7 +483,8 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
       </div>
       <div className="pointer-events-none absolute bottom-6 left-6 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-300">
         {layerVisibility.ais ? 'AIS' : 'AIS Off'} · {layerVisibility.radar ? 'Radar' : 'Radar Off'} ·{' '}
-        {layerVisibility.fused ? 'Fused' : 'Fused Off'} · {layerVisibility.alerts ? 'Alerts' : 'Alerts Off'}
+        {layerVisibility.fused ? 'Fused' : 'Fused Off'} · {layerVisibility.alerts ? 'Alerts' : 'Alerts Off'} ·{' '}
+        {layerVisibility.analysis ? 'Analysis' : 'Analysis Off'}
       </div>
     </div>
   )

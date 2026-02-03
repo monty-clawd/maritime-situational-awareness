@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ActiveTargetsList from '@/components/ActiveTargetsList'
-import { addToWatchlist, removeFromWatchlist } from '@/services/api'
-import type { WatchlistEntry, Alert } from '@/types/maritime'
+import { addToWatchlist, removeFromWatchlist, analyzeVessel } from '@/services/api'
+import type { WatchlistEntry, Alert, AnalysisResult } from '@/types/maritime'
 import { formatKnots, formatLatLon } from '@/utils/format'
 
 type VesselPanelProps = {
@@ -15,6 +15,9 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [actionState, setActionState] = useState<'idle' | 'working'>('idle')
   const [actionError, setActionError] = useState<string | null>(null)
+  
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   const selectedEntry = useMemo(
     () =>
@@ -23,6 +26,11 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
         : watchlistEntries.find((vessel) => vessel.mmsi === selectedVessel) ?? null,
     [selectedVessel, watchlistEntries],
   )
+  
+  useEffect(() => {
+    setAnalysisResult(null)
+    setActionError(null)
+  }, [selectedVessel])
 
   const isTracked = selectedVessel !== null && watchlistEntries.some((vessel) => vessel.mmsi === selectedVessel)
 
@@ -41,6 +49,20 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
       setActionError('Unable to update watchlist.')
     } finally {
       setActionState('idle')
+    }
+  }
+
+  const handleAnalyze = async () => {
+    if (selectedVessel === null || isAnalyzing) return
+    setIsAnalyzing(true)
+    setActionError(null)
+    try {
+        const result = await analyzeVessel(selectedVessel)
+        setAnalysisResult(result)
+    } catch (err) {
+        setActionError('Analysis failed.')
+    } finally {
+        setIsAnalyzing(false)
     }
   }
 
@@ -154,23 +176,54 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
                 style={{ width: `${(selectedPosition?.confidence ?? 0) * 100}%` }}
               />
             </div>
+            
+            {/* AI Analysis Result */}
+            {analysisResult && (
+                <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-indigo-500/30 bg-indigo-950/40 p-3">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-indigo-300">AI Behavior Analysis</p>
+                    <p className="text-xs leading-relaxed text-indigo-100 font-medium">{analysisResult.explanation}</p>
+                    
+                    {analysisResult.deviations.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                            {analysisResult.deviations.map((d, i) => (
+                                <div key={i} className="flex items-start gap-2 rounded bg-indigo-950/60 p-1.5 text-[10px] text-amber-200 border border-amber-500/20">
+                                    <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                                    <span>{d.description}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                     <p className="mt-2 text-[9px] text-indigo-400/60 text-right">Powered by Gemini</p>
+                </div>
+            )}
+
             {actionError ? (
               <div className="mt-3 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
                 {actionError}
               </div>
             ) : null}
+            
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleTrackToggle}
                 disabled={actionState === 'working'}
-                className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
+                className={`flex-1 rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
                   isTracked
                     ? 'border-rose-400/60 bg-rose-500/10 text-rose-200 hover:border-rose-300'
                     : 'border-emerald-400/60 bg-emerald-500/10 text-emerald-200 hover:border-emerald-300'
                 } ${actionState === 'working' ? 'cursor-wait opacity-60' : ''}`}
               >
                 {actionState === 'working' ? 'Updating' : isTracked ? 'Untrack' : 'Track'}
+              </button>
+              
+               <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className={`flex-1 rounded-full border border-indigo-400/60 bg-indigo-500/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-indigo-200 hover:border-indigo-300 transition ${isAnalyzing ? 'cursor-wait opacity-60' : ''}`}
+              >
+                {isAnalyzing ? 'Thinking...' : 'Analyze'}
               </button>
             </div>
           </>

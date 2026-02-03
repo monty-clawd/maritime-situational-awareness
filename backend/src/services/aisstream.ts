@@ -6,6 +6,7 @@ import { broadcastVessel, broadcastAlert } from '../websocket/server.js'
 import { fusePosition } from './fusion.js'
 import { checkIntegrity } from './discrepancy.js'
 import { reportSignalLoss, getInterferenceZones } from './integrity.js'
+import { analyzeBehavior } from './analysis.js'
 import { pool } from '../db/pool.js'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
@@ -315,7 +316,7 @@ const handleMessage = (rawData: WebSocket.RawData) => {
     return
   }
 
-  const vessel: Vessel = {
+  let vessel: Vessel = {
     mmsi: parsed.mmsi,
     name: parsed.vesselName,
     lastPosition: {
@@ -328,9 +329,11 @@ const handleMessage = (rawData: WebSocket.RawData) => {
     },
   }
 
+  const existing = latestVessels.get(vessel.mmsi)
+  vessel = analyzeBehavior(vessel, existing)
+
   // Integrity Check
   if (vessel.lastPosition) {
-    const existing = latestVessels.get(vessel.mmsi)
     const integrityAlert = checkIntegrity(
       { ...vessel.lastPosition, mmsi: String(vessel.mmsi) },
       existing?.lastPosition ? { ...existing.lastPosition, mmsi: String(existing.mmsi) } : null,

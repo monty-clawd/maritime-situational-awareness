@@ -9,6 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1).optional(),
   AISSTREAM_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
   JWT_SECRET: z.string().min(1),
   CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
 })

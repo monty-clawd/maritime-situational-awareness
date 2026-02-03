@@ -27,6 +27,7 @@ export interface Vessel {
   width?: number
   destination?: string
   lastPosition?: Position
+  isLoitering?: boolean
 }
 
 export interface WatchlistEntry extends Vessel {
@@ -59,4 +60,28 @@ export interface InterferenceZone {
   radiusMeters: number
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   eventCount: number
+}
+
+export interface Deviation {
+  type: 'ROUTE_DEVIATION' | 'SPEED_ANOMALY' | 'LOITERING' | 'COURSE_MISMATCH'
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  description: string
+  details: any
+}
+
+export interface AnalysisResult {
+  vesselId: number
+  timestamp: string
+  deviations: Deviation[]
+  explanation?: string
+}
+
+export interface ShippingLane {
+    id: string
+    name: string
+    bounds: { minLon: number, minLat: number, maxLon: number, maxLat: number }
+    direction: number
+    tolerance: number
+    maxSpeed: number
+    minSpeed: number
 }
