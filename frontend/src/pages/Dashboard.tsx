@@ -87,6 +87,7 @@ export default function Dashboard() {
               onVesselClick={handleVesselSelect}
               onAlert={handleAlert}
               selectedVessel={selectedVessel}
+              historyTrack={historyTrack}
             />
           </div>
         </div>
@@ -95,8 +96,20 @@ export default function Dashboard() {
             selectedVessel={selectedVessel} 
             onSelect={handleVesselSelect} 
             activeAlerts={activeVesselAlerts}
+            onViewHistory={() => setShowTimeline(true)}
           />
-          <AlertFeed alerts={alerts} onAcknowledge={handleAcknowledge} />
+          {showTimeline ? (
+            <TimelinePanel 
+                mmsi={selectedVessel} 
+                onClose={() => {
+                    setShowTimeline(false)
+                    setHistoryTrack(null)
+                }}
+                onLoadTrack={setHistoryTrack}
+            />
+          ) : (
+            <AlertFeed alerts={alerts} onAcknowledge={handleAcknowledge} />
+          )}
         </div>
       </main>
     </div>
