@@ -58,6 +58,105 @@ let reconnectAttempts = 0
 let hasStarted = false
 const latestVessels = new Map<number, Vessel>()
 
+// --- Simulation Logic ---
+const SIMULATION_CENTER = { lat: 54.0, lon: 10.0 }
+const SIMULATED_COUNT = 25
+let simulationInterval: NodeJS.Timeout | null = null
+
+const SIMULATED_NAMES = [
+  'Spirit of the North', 'Baltic Queen', 'Nordic Star', 'Ocean Giant', 
+  'Sea Explorer', 'Hamburg Express', 'Viking Grace', 'Stena Germanica',
+  'Color Magic', 'Pearl Seaways', 'Finnlines Star', 'Crown Seaways',
+  'Stena Scandinavica', 'Peter Pan', 'Nils Holgersson', 'Robin Hood',
+  'Tom Sawyer', 'Huckleberry Finn', 'Akka', 'Tinker Bell', 'Europa',
+  'Skane', 'Mecklenburg-Vorpommern', 'Berlin', 'Copenhagen'
+]
+
+const startSimulation = () => {
+    if (simulationInterval) return
+    logger.info('Starting AIS simulation mode (No API Key found)')
+
+    // Initialize random vessels
+    for (let i = 0; i < SIMULATED_COUNT; i++) {
+        const mmsi = 200000000 + i
+        // Spread them out a bit more
+        const lat = SIMULATION_CENTER.lat + (Math.random() - 0.5) * 3.0
+        const lon = SIMULATION_CENTER.lon + (Math.random() - 0.5) * 6.0
+        const heading = Math.random() * 360
+        const speed = 5 + Math.random() * 15
+        
+        const vessel: Vessel = {
+            mmsi,
+            name: SIMULATED_NAMES[i] || `Sim Vessel ${i}`,
+            type: Math.random() > 0.5 ? 'Cargo' : 'Passenger',
+            length: 100 + Math.random() * 200,
+            width: 20 + Math.random() * 10,
+            destination: Math.random() > 0.5 ? 'Hamburg' : 'Kiel',
+            flag: 'DE',
+            imo: 9000000 + i,
+            callSign: `D${Math.floor(Math.random() * 1000)}`,
+            lastPosition: {
+                timestamp: new Date().toISOString(),
+                latitude: lat,
+                longitude: lon,
+                speed,
+                heading,
+                source: 'AIS',
+                confidence: 1.0
+            }
+        }
+        latestVessels.set(mmsi, vessel)
+    }
+
+    simulationInterval = setInterval(() => {
+        const now = new Date().toISOString()
+        for (const mmsi of latestVessels.keys()) {
+            const vessel = latestVessels.get(mmsi)
+            if (!vessel || !vessel.lastPosition) continue
+
+            const speed = vessel.lastPosition.speed || 0
+            const heading = vessel.lastPosition.heading || 0
+            
+            // 1 degree lat ~ 60nm ~ 111km
+            // speed is knots (nm/h)
+            // update every 2s
+            const distDeg = (speed * (2/3600)) / 60 
+            
+            const rad = (heading * Math.PI) / 180
+            const dLat = Math.cos(rad) * distDeg
+            const dLon = Math.sin(rad) * distDeg // ignoring lat projection for simplicity
+            
+            // Random course changes
+            const newHeading = (heading + (Math.random() - 0.5) * 5) % 360
+            
+            // Bounce off boundaries (rough box)
+            let newLat = vessel.lastPosition.latitude + dLat
+            let newLon = vessel.lastPosition.longitude + dLon
+            let finalHeading = newHeading
+
+            if (newLat > 57 || newLat < 53) finalHeading = (180 - finalHeading + 360) % 360
+            if (newLon > 15 || newLon < 3) finalHeading = (360 - finalHeading) % 360
+
+            const updatedVessel: Vessel = {
+                ...vessel,
+                lastPosition: {
+                    ...vessel.lastPosition,
+                    timestamp: now,
+                    latitude: newLat,
+                    longitude: newLon,
+                    heading: finalHeading
+                }
+            }
+            
+            latestVessels.set(mmsi, updatedVessel)
+            broadcastVessel(updatedVessel)
+            fusePosition(mmsi, 'AIS', newLat, newLon)
+        }
+    }, 2000)
+}
+
+// --- End Simulation Logic ---
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
@@ -281,6 +380,7 @@ const scheduleReconnect = () => {
 const connect = () => {
   if (!env.AISSTREAM_API_KEY) {
     logger.warn('AISSTREAM_API_KEY not set; AISStream client disabled')
+    startSimulation() // Fallback to simulation
     return
   }
 
