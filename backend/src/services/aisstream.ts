@@ -210,7 +210,12 @@ const handleStaticDataMessage = (message: AisStreamMessage) => {
   void upsertVesselStatic(staticUpdate)
 }
 
+let messageCount = 0
+let lastMessageTime: string | null = null
+
 const handleMessage = (rawData: WebSocket.RawData) => {
+  messageCount++
+  lastMessageTime = new Date().toISOString()
   const payload = typeof rawData === 'string' ? rawData : rawData.toString()
   const message = parseMessage(payload)
   if (!message) {
@@ -337,4 +342,8 @@ export const startAISStream = () => {
 }
 
 export const getVessels = (): Vessel[] => Array.from(latestVessels.values())
-export const getAisStatus = (): boolean => isConnected
+export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null } => ({
+  connected: isConnected,
+  messageCount,
+  lastMessageTime,
+})

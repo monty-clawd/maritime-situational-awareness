@@ -11,6 +11,10 @@ type SystemStatus = {
   database: StatusState
   redis: StatusState
   lastUpdate: string
+  debug?: {
+    messageCount: number
+    lastMessage: string | null
+  }
 }
 
 const router = Router()
@@ -27,7 +31,8 @@ const checkDatabaseStatus = async (): Promise<StatusState> => {
 router.get('/', async (_req, res) => {
   const database = await checkDatabaseStatus()
   const redis = redisClient.isOpen ? 'ONLINE' : 'OFFLINE'
-  const aisStream = getAisStatus() ? 'ONLINE' : 'OFFLINE'
+  const aisStatus = getAisStatus()
+  const aisStream = aisStatus.connected ? 'ONLINE' : 'OFFLINE'
 
   const payload: SystemStatus = {
     aisStream,
@@ -35,6 +40,10 @@ router.get('/', async (_req, res) => {
     database,
     redis,
     lastUpdate: new Date().toISOString(),
+    debug: {
+      messageCount: aisStatus.messageCount,
+      lastMessage: aisStatus.lastMessageTime
+    }
   }
 
   res.json(payload)
