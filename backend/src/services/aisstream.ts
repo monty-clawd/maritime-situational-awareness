@@ -281,7 +281,10 @@ const scheduleReconnect = () => {
 }
 
 const connect = () => {
-  if (!env.AISSTREAM_API_KEY) {
+  const apiKey = env.AISSTREAM_API_KEY
+  logger.info({ hasKey: !!apiKey, keyPrefix: apiKey?.slice(0, 4) }, 'Attempting AISStream connection')
+
+  if (!apiKey) {
     logger.warn('AISSTREAM_API_KEY not set; AISStream client disabled')
     isConnected = false
     return
@@ -291,10 +294,11 @@ const connect = () => {
   socket = new WebSocket(AISSTREAM_URL)
 
   socket.on('open', () => {
+    logger.info('AISStream WebSocket open')
     reconnectAttempts = 0
     isConnected = true
     const subscription: AisStreamSubscription = {
-      Apikey: env.AISSTREAM_API_KEY as string,
+      Apikey: apiKey,
       BoundingBoxes: GLOBAL_BOUNDING_BOXES,
       FilterMessageTypes: [
         'PositionReport',
@@ -305,7 +309,7 @@ const connect = () => {
       ],
     }
     socket?.send(JSON.stringify(subscription))
-    logger.info('AISStream connected')
+    logger.info({ bbox: GLOBAL_BOUNDING_BOXES }, 'AISStream subscription sent')
   })
 
   socket.on('message', handleMessage)
