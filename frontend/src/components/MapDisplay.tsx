@@ -18,13 +18,24 @@ type MapDisplayProps = {
   selectedVessel?: number | null
 }
 
+const PRUNE_INTERVAL_MS = 60_000 // Prune every minute
+const MAX_AGE_MS = 10 * 60 * 1000 // Remove vessels unseen for 10 mins
+const UPDATE_THROTTLE_MS = 1000 // Update map at most once per second
+
 export default function MapDisplay({ layerVisibility, onVesselClick, selectedVessel }: MapDisplayProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onVesselClickRef = useRef<MapDisplayProps['onVesselClick']>(undefined)
+  
+  // React state for UI sync (active targets list, etc)
   const [vesselsByMmsi, setVesselsByMmsi] = useState<Record<number, Vessel>>({})
+  
+  // Refs for high-frequency data handling to avoid re-render storms
+  const pendingUpdates = useRef<Record<number, Vessel>>({})
+  const lastPrune = useRef<number>(Date.now())
 
   const vessels = useMemo(() => Object.values(vesselsByMmsi), [vesselsByMmsi])
+  
   const vesselGeoJson = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
@@ -53,6 +64,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     onVesselClickRef.current = onVesselClick
   }, [onVesselClick])
 
+  // Initialize Map
   useEffect(() => {
     if (!mapContainer.current) return
 
@@ -79,8 +91,6 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
       return context.getImageData(0, 0, size, size)
     }
 
-    // Maritime-focused map style with OpenStreetMap base
-    // Using a darker style better suited for maritime ops center
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: {
@@ -109,8 +119,8 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
           },
         ],
       },
-      center: [10, 54], // North Sea / Baltic - common maritime area
-      zoom: 4,
+      center: [2.5, 54], // Centered on North Sea
+      zoom: 5,
       attributionControl: true,
     })
 
@@ -194,6 +204,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     }
   }, [])
 
+  // WebSocket Data Handling (Batched)
   useEffect(() => {
     const apiUrl = getApiBaseUrl()
     const envWsUrl = (import.meta.env.VITE_WS_URL as string | undefined)?.trim()
@@ -201,17 +212,58 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
 
     const client = new MaritimeWebSocket(wsUrl, {
       onVesselUpdate: (vessel) => {
-        setVesselsByMmsi((prev) => ({ ...prev, [vessel.mmsi]: vessel }))
+        // Buffer updates instead of setting state immediately
+        pendingUpdates.current[vessel.mmsi] = vessel
       },
     })
 
     client.connect()
 
+    // Flush loop
+    const intervalId = setInterval(() => {
+      const updates = pendingUpdates.current
+      const hasUpdates = Object.keys(updates).length > 0
+      const now = Date.now()
+      const shouldPrune = now - lastPrune.current > PRUNE_INTERVAL_MS
+
+      if (hasUpdates || shouldPrune) {
+        setVesselsByMmsi((prev) => {
+          const next = { ...prev, ...updates }
+          
+          // Reset buffer
+          pendingUpdates.current = {}
+
+          if (shouldPrune) {
+            lastPrune.current = now
+            const cutoff = new Date(now - MAX_AGE_MS).toISOString()
+            const pruned: Record<number, Vessel> = {}
+            let prunedCount = 0
+            
+            for (const [key, v] of Object.entries(next)) {
+              if (v.lastPosition && v.lastPosition.timestamp > cutoff) {
+                pruned[Number(key)] = v
+              } else {
+                prunedCount++
+              }
+            }
+            if (prunedCount > 0) {
+              console.log(`Pruned ${prunedCount} stale vessels`)
+            }
+            return pruned
+          }
+          
+          return next
+        })
+      }
+    }, UPDATE_THROTTLE_MS)
+
     return () => {
       client.disconnect()
+      clearInterval(intervalId)
     }
   }, [])
 
+  // Initial Load
   useEffect(() => {
     let isActive = true
     fetchVessels()
@@ -233,6 +285,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     }
   }, [])
 
+  // Update Map Source (Efficiently)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -241,6 +294,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     source.setData(vesselGeoJson)
   }, [vesselGeoJson])
 
+  // Update Layer Visibility
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -251,6 +305,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     }
   }, [layerVisibility.ais])
 
+  // Update Selection Filter
   useEffect(() => {
     const map = mapRef.current
     if (!map) return

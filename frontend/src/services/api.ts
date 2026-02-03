@@ -20,6 +20,10 @@ export type SystemStatus = {
   radar: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
   database: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
   redis: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
+  metrics?: {
+    messagesPerMinute: number
+    totalTrackedVessels: number
+  }
   lastUpdate: string
 }
 

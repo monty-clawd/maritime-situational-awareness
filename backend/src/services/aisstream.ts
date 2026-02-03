@@ -213,11 +213,32 @@ const handleStaticDataMessage = (message: AisStreamMessage) => {
 let messageCount = 0
 let lastMessageTime: string | null = null
 const messageTypes: Record<string, number> = {}
-
 let lastPayload: string | null = null
+
+// Message rate tracking
+let messageRateCounter = 0
+let lastRateCheck = Date.now()
+let currentMessagesPerMinute = 0
+
+// Update rate every 5 seconds
+setInterval(() => {
+  const now = Date.now()
+  const elapsed = (now - lastRateCheck) / 1000 // seconds
+  if (elapsed > 0) {
+    // Project to per-minute rate based on recent window
+    // This is an approximation but good enough for a dashboard
+    // If we want exact "last minute", we need a sliding window of timestamps
+    // For simplicity: (count / seconds) * 60
+    currentMessagesPerMinute = Math.round((messageRateCounter / elapsed) * 60)
+  }
+  // Reset for next window
+  messageRateCounter = 0
+  lastRateCheck = now
+}, 5000)
 
 const handleMessage = (rawData: WebSocket.RawData) => {
   messageCount++
+  messageRateCounter++
   lastMessageTime = new Date().toISOString()
   const payload = typeof rawData === 'string' ? rawData : rawData.toString()
   lastPayload = payload.slice(0, 100)
@@ -352,10 +373,11 @@ export const startAISStream = () => {
 }
 
 export const getVessels = (): Vessel[] => Array.from(latestVessels.values())
-export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null; messageTypes: Record<string, number>; lastPayload: string | null } => ({
+export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null; messageTypes: Record<string, number>; lastPayload: string | null; messagesPerMinute: number } => ({
   connected: isConnected,
   messageCount,
   lastMessageTime,
   messageTypes,
-  lastPayload
+  lastPayload,
+  messagesPerMinute: currentMessagesPerMinute
 })

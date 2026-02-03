@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db/pool.js'
 import { redisClient } from '../services/redis.js'
-import { getAisStatus } from '../services/aisstream.js'
+import { getAisStatus, getVessels } from '../services/aisstream.js'
 
 type StatusState = 'ONLINE' | 'OFFLINE' | 'DEGRADED'
 
@@ -10,6 +10,10 @@ type SystemStatus = {
   radar: StatusState
   database: StatusState
   redis: StatusState
+  metrics: {
+    messagesPerMinute: number
+    totalTrackedVessels: number
+  }
   lastUpdate: string
   debug?: {
     messageCount: number
@@ -35,12 +39,17 @@ router.get('/', async (_req, res) => {
   const redis = redisClient.isOpen ? 'ONLINE' : 'OFFLINE'
   const aisStatus = getAisStatus()
   const aisStream = aisStatus.connected ? 'ONLINE' : 'OFFLINE'
+  const vessels = getVessels()
 
   const payload: SystemStatus = {
     aisStream,
     radar: 'OFFLINE',
     database,
     redis,
+    metrics: {
+      messagesPerMinute: aisStatus.messagesPerMinute,
+      totalTrackedVessels: vessels.length,
+    },
     lastUpdate: new Date().toISOString(),
     debug: {
       messageCount: aisStatus.messageCount,
