@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db/pool.js'
 import { redisClient } from '../services/redis.js'
+import { getAisStatus } from '../services/aisstream.js'
 
 type StatusState = 'ONLINE' | 'OFFLINE' | 'DEGRADED'
 
@@ -26,9 +27,10 @@ const checkDatabaseStatus = async (): Promise<StatusState> => {
 router.get('/', async (_req, res) => {
   const database = await checkDatabaseStatus()
   const redis = redisClient.isOpen ? 'ONLINE' : 'OFFLINE'
+  const aisStream = getAisStatus() ? 'ONLINE' : 'OFFLINE'
 
   const payload: SystemStatus = {
-    aisStream: 'OFFLINE',
+    aisStream,
     radar: 'OFFLINE',
     database,
     redis,

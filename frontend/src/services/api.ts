@@ -15,6 +15,14 @@ const api = axios.create({
   timeout: 10000,
 })
 
+export type SystemStatus = {
+  aisStream: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
+  radar: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
+  database: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
+  redis: 'ONLINE' | 'OFFLINE' | 'DEGRADED'
+  lastUpdate: string
+}
+
 export const fetchVessels = async (): Promise<Vessel[]> => {
   const response = await api.get<Vessel[]>('/api/vessels')
   return response.data
@@ -36,6 +44,11 @@ export const removeFromWatchlist = async (mmsi: number): Promise<void> => {
 
 export const fetchAlerts = async (): Promise<Alert[]> => {
   const response = await api.get<Alert[]>('/api/alerts')
+  return response.data
+}
+
+export const fetchStatus = async (): Promise<SystemStatus> => {
+  const response = await api.get<SystemStatus>('/api/status')
   return response.data
 }
 
