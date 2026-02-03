@@ -427,7 +427,7 @@ const pruneStaleVessels = () => {
   }
 }
 
-setInterval(pruneStaleVessels, 60_000)
+const connect = () => {
   const apiKey = env.AISSTREAM_API_KEY
   logger.info({ hasKey: !!apiKey, keyPrefix: apiKey?.slice(0, 4) }, 'Attempting AISStream connection')
 
