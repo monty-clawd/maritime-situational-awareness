@@ -15,38 +15,7 @@ export default function Dashboard() {
     alerts: true,
   })
   const [selectedVessel, setSelectedVessel] = useState<number | null>(null)
-  const [alerts, setAlerts] = useState<Alert[]>([
-    {
-      id: 101,
-      mmsi: 366982330,
-      type: 'POSITION_DISCREPANCY',
-      severity: 'HIGH',
-      createdAt: new Date().toISOString(),
-      acknowledged: false,
-      acknowledgedAt: null,
-      details: { deltaMeters: 812, source: 'Radar vs AIS' },
-    },
-    {
-      id: 102,
-      mmsi: 477123900,
-      type: 'SIGNAL_GAP',
-      severity: 'MEDIUM',
-      createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-      acknowledged: false,
-      acknowledgedAt: null,
-      details: { gapSeconds: 42 },
-    },
-    {
-      id: 103,
-      mmsi: 316114000,
-      type: 'GNSS_DRIFT',
-      severity: 'LOW',
-      createdAt: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-      acknowledged: true,
-      acknowledgedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-      details: { driftMeters: 210 },
-    },
-  ])
+  const [alerts, setAlerts] = useState<Alert[]>([])
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
 
   useEffect(() => {

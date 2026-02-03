@@ -3,18 +3,7 @@ import type { Alert } from '../types/maritime.js'
 
 const router = Router()
 
-const alerts: Alert[] = [
-  {
-    id: 101,
-    mmsi: 366982330,
-    type: 'POSITION_DISCREPANCY',
-    severity: 'HIGH',
-    createdAt: new Date().toISOString(),
-    acknowledged: false,
-    acknowledgedAt: null,
-    details: { deltaMeters: 812, source: 'Radar vs AIS' },
-  },
-]
+const alerts: Alert[] = []
 
 router.get('/', async (_req, res) => {
   const sortedAlerts = [...alerts].sort((a, b) => b.createdAt.localeCompare(a.createdAt))

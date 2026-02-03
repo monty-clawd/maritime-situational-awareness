@@ -129,4 +129,13 @@ router.delete('/:mmsi', async (req, res, next) => {
   }
 })
 
+router.delete('/', async (_req, res, next) => {
+  try {
+    await pool.query('DELETE FROM watchlist')
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router
