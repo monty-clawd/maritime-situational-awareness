@@ -7,7 +7,8 @@ import { fusePosition } from './fusion.js'
 import { pool } from '../db/pool.js'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
-const GLOBAL_BOUNDING_BOXES: BoundingBox[] = [[[-90, -180], [90, 180]]]
+// North Sea / English Channel area to comply with potential free tier limits
+const GLOBAL_BOUNDING_BOXES: BoundingBox[] = [[[50.0, -5.0], [60.0, 10.0]]]
 
 const BASE_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30_000
