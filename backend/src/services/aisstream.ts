@@ -349,6 +349,32 @@ const handleMessage = (rawData: WebSocket.RawData) => {
   latestVessels.set(vessel.mmsi, vessel)
   broadcastVessel(vessel)
   fusePosition(vessel.mmsi, 'AIS', parsed.latitude, parsed.longitude)
+  
+  // Persist position to TimeScaleDB
+  void savePosition(vessel)
+}
+
+const savePosition = async (vessel: Vessel) => {
+  if (!vessel.lastPosition) return
+  
+  try {
+    await pool.query(
+      `INSERT INTO positions (mmsi, timestamp, latitude, longitude, speed, heading, source, confidence)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        vessel.mmsi,
+        vessel.lastPosition.timestamp,
+        vessel.lastPosition.latitude,
+        vessel.lastPosition.longitude,
+        vessel.lastPosition.speed ?? null,
+        vessel.lastPosition.heading ?? null,
+        vessel.lastPosition.source,
+        vessel.lastPosition.confidence ?? 1.0
+      ]
+    )
+  } catch (err) {
+    logger.error({ err, mmsi: vessel.mmsi }, 'Failed to save position')
+  }
 }
 
 const clearReconnectTimer = () => {

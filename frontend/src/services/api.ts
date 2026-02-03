@@ -78,4 +78,26 @@ export const fetchWeather = async (lat: number, lon: number): Promise<WeatherInf
   return response.data;
 }
 
+export type HistoryResult = {
+  mmsi: number
+  range: { start: string; end: string }
+  points: {
+    timestamp: string
+    latitude: number
+    longitude: number
+    speed: number
+    heading: number
+    source: string
+  }[]
+  track: GeoJSON.Feature<GeoJSON.LineString>
+}
+
+export const fetchHistory = async (mmsi: number, start?: Date, end?: Date): Promise<HistoryResult> => {
+  const params: Record<string, string> = {}
+  if (start) params.start = start.toISOString()
+  if (end) params.end = end.toISOString()
+  const response = await api.get<HistoryResult>(`/api/history/${mmsi}`, { params })
+  return response.data
+}
+
 export default api

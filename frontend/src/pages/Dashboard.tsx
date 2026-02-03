@@ -4,6 +4,7 @@ import LayerControls from '@/components/LayerControls'
 import MapDisplay from '@/components/MapDisplay'
 import VesselPanel from '@/components/VesselPanel'
 import SystemStatusWidget from '@/components/SystemStatusWidget'
+import TimelinePanel from '@/components/TimelinePanel'
 import type { LayerKey, LayerVisibility } from '@/components/LayerControls'
 import type { Alert } from '@/types/maritime'
 
@@ -18,6 +19,8 @@ export default function Dashboard() {
   })
   const [selectedVessel, setSelectedVessel] = useState<number | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [historyTrack, setHistoryTrack] = useState<GeoJSON.Feature<GeoJSON.LineString> | null>(null)
 
   const handleLayerToggle = (layer: LayerKey) => {
     setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }))
@@ -25,6 +28,13 @@ export default function Dashboard() {
 
   const handleVesselSelect = (mmsi: number) => {
     setSelectedVessel(mmsi)
+    // If selecting a different vessel, clear timeline unless we want to keep it open?
+    // Let's keep it open if it's the same vessel, otherwise close it or reload.
+    // For simplicity, let's close it if we switch vessels so the user has to click "History" again.
+    if (mmsi !== selectedVessel) {
+        setShowTimeline(false)
+        setHistoryTrack(null)
+    }
   }
 
   const handleAcknowledge = (id: number) => {

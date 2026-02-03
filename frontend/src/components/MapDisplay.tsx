@@ -19,13 +19,14 @@ type MapDisplayProps = {
   onVesselClick?: (mmsi: number) => void
   onAlert?: (alert: unknown) => void
   selectedVessel?: number | null
+  historyTrack?: GeoJSON.Feature<GeoJSON.LineString> | null
 }
 
 const PRUNE_INTERVAL_MS = 60_000 // Prune every minute
 const MAX_AGE_MS = 10 * 60 * 1000 // Remove vessels unseen for 10 mins
 const UPDATE_THROTTLE_MS = 1000 // Update map at most once per second
 
-export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, selectedVessel }: MapDisplayProps) {
+export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, selectedVessel, historyTrack }: MapDisplayProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onVesselClickRef = useRef<MapDisplayProps['onVesselClick']>(undefined)
@@ -268,6 +269,23 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
 
       if (!map.getSource('weather')) {
         map.addSource('weather', { type: 'geojson', data: weatherGeoJson })
+      }
+
+      if (!map.getSource('history-track')) {
+        map.addSource('history-track', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      }
+
+      if (!map.getLayer('history-track-line')) {
+        map.addLayer({
+            id: 'history-track-line',
+            type: 'line',
+            source: 'history-track',
+            paint: {
+                'line-color': '#fcd34d', // Amber 300
+                'line-width': 2,
+                'line-opacity': 0.8
+            }
+        })
       }
 
       if (!map.getLayer('weather-icon')) {
@@ -520,7 +538,15 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     
     const weatherSource = map.getSource('weather') as GeoJSONSource | undefined
     if (weatherSource) weatherSource.setData(weatherGeoJson)
-  }, [isMapLoaded, vesselGeoJson, interferenceGeoJson, lanesGeoJson, weatherGeoJson])
+    
+    const historySource = map.getSource('history-track') as GeoJSONSource | undefined
+    if (historySource) {
+        historySource.setData({
+            type: 'FeatureCollection',
+            features: historyTrack ? [historyTrack] : []
+        })
+    }
+  }, [isMapLoaded, vesselGeoJson, interferenceGeoJson, lanesGeoJson, weatherGeoJson, historyTrack])
 
   // Update Layer Visibility
   useEffect(() => {

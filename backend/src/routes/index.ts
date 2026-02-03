@@ -8,6 +8,7 @@ import vessels from './vessels.js'
 import watchlist from './watchlist.js'
 import behavior from './behavior.js'
 import environment from './environment.js'
+import history from './history.js'
 
 const router = Router()
 
@@ -20,5 +21,6 @@ router.use('/status', status)
 router.use('/watchlist', watchlist)
 router.use('/behavior', behavior)
 router.use('/environment', environment)
+router.use('/history', history)
 
 export default router

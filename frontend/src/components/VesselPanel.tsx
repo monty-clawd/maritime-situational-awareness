@@ -7,10 +7,11 @@ import { formatKnots, formatLatLon } from '@/utils/format'
 type VesselPanelProps = {
   selectedVessel: number | null
   onSelect: (mmsi: number) => void
+  onViewHistory: () => void
   activeAlerts?: Alert[]
 }
 
-export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: VesselPanelProps) {
+export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, activeAlerts }: VesselPanelProps) {
   const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>([])
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [actionState, setActionState] = useState<'idle' | 'working'>('idle')
@@ -262,6 +263,14 @@ export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: 
                 className={`flex-1 rounded-full border border-indigo-400/60 bg-indigo-500/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-indigo-200 hover:border-indigo-300 transition ${isAnalyzing ? 'cursor-wait opacity-60' : ''}`}
               >
                 {isAnalyzing ? 'Thinking...' : 'Analyze'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={onViewHistory}
+                className="flex-1 rounded-full border border-sky-400/60 bg-sky-500/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-sky-200 hover:border-sky-300 transition"
+              >
+                History
               </button>
             </div>
           </>
