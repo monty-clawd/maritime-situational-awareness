@@ -214,10 +214,13 @@ let messageCount = 0
 let lastMessageTime: string | null = null
 const messageTypes: Record<string, number> = {}
 
+let lastPayload: string | null = null
+
 const handleMessage = (rawData: WebSocket.RawData) => {
   messageCount++
   lastMessageTime = new Date().toISOString()
   const payload = typeof rawData === 'string' ? rawData : rawData.toString()
+  lastPayload = payload.slice(0, 100)
   const message = parseMessage(payload)
   
   if (message?.MessageType) {
@@ -227,6 +230,9 @@ const handleMessage = (rawData: WebSocket.RawData) => {
   }
 
   if (!message) {
+    if (messageCount <= 5) {
+        logger.warn({ payloadPrefix: payload.slice(0, 200) }, 'Failed to parse message')
+    }
     return
   }
 
@@ -350,9 +356,10 @@ export const startAISStream = () => {
 }
 
 export const getVessels = (): Vessel[] => Array.from(latestVessels.values())
-export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null; messageTypes: Record<string, number> } => ({
+export const getAisStatus = (): { connected: boolean; messageCount: number; lastMessageTime: string | null; messageTypes: Record<string, number>; lastPayload: string | null } => ({
   connected: isConnected,
   messageCount,
   lastMessageTime,
-  messageTypes
+  messageTypes,
+  lastPayload
 })
