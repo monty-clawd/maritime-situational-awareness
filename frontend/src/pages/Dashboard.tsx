@@ -39,6 +39,22 @@ export default function Dashboard() {
     )
   }
 
+  const handleAlert = (payload: any) => {
+    // Map backend integrity alert to frontend Alert type
+    const newAlert: Alert = {
+      id: Date.now(), // Generate temp ID
+      mmsi: Number(payload.mmsi),
+      type: payload.type,
+      severity: payload.severity || 'MEDIUM',
+      createdAt: payload.timestamp || new Date().toISOString(),
+      acknowledged: false,
+      details: payload.details
+    }
+    setAlerts(prev => [newAlert, ...prev].slice(0, 50)) // Keep last 50
+  }
+
+  const activeVesselAlerts = alerts.filter(a => a.mmsi === selectedVessel && !a.acknowledged)
+
   return (
     <div className="flex h-full flex-col gap-6 p-8 relative">
       <div className="absolute top-8 right-8 z-10">
@@ -57,12 +73,17 @@ export default function Dashboard() {
             <MapDisplay
               layerVisibility={layerVisibility}
               onVesselClick={handleVesselSelect}
+              onAlert={handleAlert}
               selectedVessel={selectedVessel}
             />
           </div>
         </div>
         <div className="grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-          <VesselPanel selectedVessel={selectedVessel} onSelect={handleVesselSelect} />
+          <VesselPanel 
+            selectedVessel={selectedVessel} 
+            onSelect={handleVesselSelect} 
+            activeAlerts={activeVesselAlerts}
+          />
           <AlertFeed alerts={alerts} onAcknowledge={handleAcknowledge} />
         </div>
       </main>

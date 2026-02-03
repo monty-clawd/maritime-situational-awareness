@@ -2,8 +2,10 @@ import WebSocket from 'ws'
 import { env } from '../config/env.js'
 import { logger } from './logger.js'
 import type { Vessel } from '../types/maritime.js'
-import { broadcastVessel } from '../websocket/server.js'
+import { broadcastVessel, broadcastAlert } from '../websocket/server.js'
 import { fusePosition } from './fusion.js'
+import { checkIntegrity } from './discrepancy.js'
+import { reportSignalLoss, getInterferenceZones } from './integrity.js'
 import { pool } from '../db/pool.js'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
@@ -236,6 +238,32 @@ setInterval(() => {
   lastRateCheck = now
 }, 5000)
 
+// Signal Loss / Jamming Detection
+setInterval(() => {
+  const now = Date.now()
+  // Check vessels that went silent between 30s and 40s ago
+  const lostWindowStart = now - 40000
+  const lostWindowEnd = now - 30000
+
+  latestVessels.forEach((v) => {
+    if (!v.lastPosition) return
+    const lastSeen = new Date(v.lastPosition.timestamp).getTime()
+
+    if (lastSeen > lostWindowStart && lastSeen < lostWindowEnd) {
+      reportSignalLoss(v.lastPosition.latitude, v.lastPosition.longitude)
+    }
+  })
+
+  const zones = getInterferenceZones()
+  if (zones.length > 0) {
+    broadcastAlert({
+      type: 'INTERFERENCE_ZONE',
+      zones,
+      timestamp: new Date().toISOString(),
+    })
+  }
+}, 10000)
+
 const handleMessage = (rawData: WebSocket.RawData) => {
   messageCount++
   messageRateCounter++
@@ -298,6 +326,21 @@ const handleMessage = (rawData: WebSocket.RawData) => {
       heading: positionReport.TrueHeading ?? parsed.cog,
       source: 'AIS',
     },
+  }
+
+  // Integrity Check
+  if (vessel.lastPosition) {
+    const existing = latestVessels.get(vessel.mmsi)
+    const integrityAlert = checkIntegrity(
+      { ...vessel.lastPosition, mmsi: String(vessel.mmsi) },
+      existing?.lastPosition ? { ...existing.lastPosition, mmsi: String(existing.mmsi) } : null,
+      vessel.type
+    )
+
+    if (integrityAlert) {
+      logger.warn({ alert: integrityAlert }, 'Integrity Alert')
+      broadcastAlert(integrityAlert)
+    }
   }
 
   latestVessels.set(vessel.mmsi, vessel)

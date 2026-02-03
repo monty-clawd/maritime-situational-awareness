@@ -2,12 +2,12 @@ import type { Alert, Vessel } from '@/types/maritime'
 
 export type WebsocketMessage =
   | { type: 'vessel:update'; payload: Vessel }
-  | { type: 'alert:new'; payload: Alert }
+  | { type: 'alert:new'; payload: unknown }
   | { type: 'heartbeat'; payload: { timestamp: string } }
 
 export type WebsocketHandlers = {
   onVesselUpdate?: (vessel: Vessel) => void
-  onAlert?: (alert: Alert) => void
+  onAlert?: (alert: unknown) => void
   onHeartbeat?: (timestamp: string) => void
 }
 

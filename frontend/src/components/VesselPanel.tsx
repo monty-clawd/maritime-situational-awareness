@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import ActiveTargetsList from '@/components/ActiveTargetsList'
 import { addToWatchlist, removeFromWatchlist } from '@/services/api'
-import type { WatchlistEntry } from '@/types/maritime'
+import type { WatchlistEntry, Alert } from '@/types/maritime'
 import { formatKnots, formatLatLon } from '@/utils/format'
 
 type VesselPanelProps = {
   selectedVessel: number | null
   onSelect: (mmsi: number) => void
+  activeAlerts?: Alert[]
 }
 
-export default function VesselPanel({ selectedVessel, onSelect }: VesselPanelProps) {
+export default function VesselPanel({ selectedVessel, onSelect, activeAlerts }: VesselPanelProps) {
   const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>([])
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [actionState, setActionState] = useState<'idle' | 'working'>('idle')
@@ -61,6 +62,10 @@ export default function VesselPanel({ selectedVessel, onSelect }: VesselPanelPro
     ? new Date(selectedEntry.addedAt).toLocaleString()
     : '--'
 
+  const integrityAlert = activeAlerts?.find((a) =>
+    ['SPEED_ANOMALY', 'TELEPORT_ANOMALY', 'POSITION_MISMATCH'].includes(a.type),
+  )
+
   return (
     <section className="flex h-full flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
       <div>
@@ -87,8 +92,18 @@ export default function VesselPanel({ selectedVessel, onSelect }: VesselPanelPro
                 <span className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-cyan-200">
                   {selectedType}
                 </span>
+                {integrityAlert && (
+                  <span className="animate-pulse rounded-full border border-amber-400/60 bg-amber-500/20 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-200">
+                    Integrity: {integrityAlert.type.split('_')[0]}
+                  </span>
+                )}
               </div>
             </div>
+            {integrityAlert && (
+              <div className="mt-3 rounded border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+                <span className="font-semibold text-amber-100">Warning:</span> {String(integrityAlert.details)}
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-300">
               <div>
                 <p className="text-slate-500">Position</p>

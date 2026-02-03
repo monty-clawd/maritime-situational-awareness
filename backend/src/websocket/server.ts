@@ -21,6 +21,11 @@ export const broadcastFusedVessel = (vessel: Vessel) => {
   broadcastMessage({ type: 'vessel:update', payload: vessel })
 }
 
+export const broadcastAlert = (alert: unknown) => {
+  if (!broadcastMessage) return
+  broadcastMessage({ type: 'alert:new', payload: alert })
+}
+
 export const initWebsocket = (server: Server) => {
   const wss = new WebSocketServer({ server, path: '/api/ws' })
 

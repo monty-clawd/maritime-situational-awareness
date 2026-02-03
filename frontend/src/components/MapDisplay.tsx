@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import { fetchVessels, getApiBaseUrl } from '@/services/api'
 import { MaritimeWebSocket } from '@/services/websocket'
-import type { Vessel } from '@/types/maritime'
+import type { Vessel, InterferenceZone } from '@/types/maritime'
 
 type LayerVisibility = {
   ais: boolean
@@ -15,6 +15,7 @@ type LayerVisibility = {
 type MapDisplayProps = {
   layerVisibility: LayerVisibility
   onVesselClick?: (mmsi: number) => void
+  onAlert?: (alert: unknown) => void
   selectedVessel?: number | null
 }
 
@@ -22,13 +23,15 @@ const PRUNE_INTERVAL_MS = 60_000 // Prune every minute
 const MAX_AGE_MS = 10 * 60 * 1000 // Remove vessels unseen for 10 mins
 const UPDATE_THROTTLE_MS = 1000 // Update map at most once per second
 
-export default function MapDisplay({ layerVisibility, onVesselClick, selectedVessel }: MapDisplayProps) {
+export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, selectedVessel }: MapDisplayProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onVesselClickRef = useRef<MapDisplayProps['onVesselClick']>(undefined)
+  const onAlertRef = useRef<MapDisplayProps['onAlert']>(undefined)
   
   // React state for UI sync (active targets list, etc)
   const [vesselsByMmsi, setVesselsByMmsi] = useState<Record<number, Vessel>>({})
+  const [interferenceZones, setInterferenceZones] = useState<InterferenceZone[]>([])
   
   // Refs for high-frequency data handling to avoid re-render storms
   const pendingUpdates = useRef<Record<number, Vessel>>({})
@@ -60,9 +63,32 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     [vessels]
   )
 
+  const interferenceGeoJson = useMemo(() => {
+    // Simple point representation for now
+    return {
+      type: 'FeatureCollection' as const,
+      features: interferenceZones.map((zone, i) => ({
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [zone.longitude, zone.latitude],
+        },
+        properties: {
+          id: `zone-${i}`,
+          severity: zone.severity,
+          radius: zone.radiusMeters,
+        },
+      })),
+    }
+  }, [interferenceZones])
+
   useEffect(() => {
     onVesselClickRef.current = onVesselClick
   }, [onVesselClick])
+
+  useEffect(() => {
+    onAlertRef.current = onAlert
+  }, [onAlert])
 
   // Initialize Map
   useEffect(() => {
@@ -181,6 +207,31 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
         })
       }
 
+      if (!map.getSource('interference')) {
+        map.addSource('interference', {
+          type: 'geojson',
+          data: interferenceGeoJson,
+        })
+      }
+
+      if (!map.getLayer('interference-zones')) {
+        map.addLayer({
+          id: 'interference-zones',
+          type: 'circle',
+          source: 'interference',
+          paint: {
+            'circle-radius': 40,
+            'circle-color': '#ef4444',
+            'circle-opacity': 0.3,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#f87171',
+          },
+          layout: {
+            visibility: layerVisibility.alerts ? 'visible' : 'none',
+          }
+        })
+      }
+
       map.on('click', 'vessel-icons', (event) => {
         const feature = event.features?.[0]
         const mmsi = feature?.properties?.mmsi
@@ -214,6 +265,13 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
       onVesselUpdate: (vessel) => {
         // Buffer updates instead of setting state immediately
         pendingUpdates.current[vessel.mmsi] = vessel
+      },
+      onAlert: (payload: any) => {
+        if (payload?.type === 'INTERFERENCE_ZONE') {
+          setInterferenceZones(payload.zones || [])
+        } else {
+          onAlertRef.current?.(payload)
+        }
       },
     })
 
@@ -290,20 +348,26 @@ export default function MapDisplay({ layerVisibility, onVesselClick, selectedVes
     const map = mapRef.current
     if (!map) return
     const source = map.getSource('vessels') as GeoJSONSource | undefined
-    if (!source) return
-    source.setData(vesselGeoJson)
-  }, [vesselGeoJson])
+    if (source) source.setData(vesselGeoJson)
+
+    const interferenceSource = map.getSource('interference') as GeoJSONSource | undefined
+    if (interferenceSource) interferenceSource.setData(interferenceGeoJson)
+  }, [vesselGeoJson, interferenceGeoJson])
 
   // Update Layer Visibility
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    if (!map.getLayer('vessel-icons')) return
-    map.setLayoutProperty('vessel-icons', 'visibility', layerVisibility.ais ? 'visible' : 'none')
+    if (map.getLayer('vessel-icons')) {
+      map.setLayoutProperty('vessel-icons', 'visibility', layerVisibility.ais ? 'visible' : 'none')
+    }
     if (map.getLayer('vessel-selected')) {
       map.setLayoutProperty('vessel-selected', 'visibility', layerVisibility.ais ? 'visible' : 'none')
     }
-  }, [layerVisibility.ais])
+    if (map.getLayer('interference-zones')) {
+      map.setLayoutProperty('interference-zones', 'visibility', layerVisibility.alerts ? 'visible' : 'none')
+    }
+  }, [layerVisibility.ais, layerVisibility.alerts])
 
   // Update Selection Filter
   useEffect(() => {

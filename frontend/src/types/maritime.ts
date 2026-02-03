@@ -42,5 +42,21 @@ export interface Alert {
   createdAt: string
   acknowledged: boolean
   acknowledgedAt?: string | null
-  details?: Record<string, unknown>
+  details?: Record<string, unknown> | string // Relaxed to allow string details
+}
+
+export interface IntegrityAlertPayload {
+  mmsi: string
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  type: string
+  details: string
+  timestamp: string
+}
+
+export interface InterferenceZone {
+  latitude: number
+  longitude: number
+  radiusMeters: number
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  eventCount: number
 }
