@@ -14,9 +14,10 @@ type LayerVisibility = {
 type MapDisplayProps = {
   layerVisibility: LayerVisibility
   onVesselClick?: (mmsi: number) => void
+  selectedVessel?: number | null
 }
 
-export default function MapDisplay({ layerVisibility, onVesselClick }: MapDisplayProps) {
+export default function MapDisplay({ layerVisibility, onVesselClick, selectedVessel }: MapDisplayProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onVesselClickRef = useRef<MapDisplayProps['onVesselClick']>(undefined)
@@ -53,6 +54,29 @@ export default function MapDisplay({ layerVisibility, onVesselClick }: MapDispla
 
   useEffect(() => {
     if (!mapContainer.current) return
+
+    const drawVesselArrow = (color: string) => {
+      const size = 64
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const context = canvas.getContext('2d')
+      if (!context) return null
+
+      context.fillStyle = color
+      context.strokeStyle = '#0f172a'
+      context.lineWidth = 3
+      context.beginPath()
+      context.moveTo(size / 2, 6)
+      context.lineTo(size - 10, size - 10)
+      context.lineTo(size / 2, size - 18)
+      context.lineTo(10, size - 10)
+      context.closePath()
+      context.fill()
+      context.stroke()
+
+      return context.getImageData(0, 0, size, size)
+    }
 
     // Maritime-focused map style with OpenStreetMap base
     // Using a darker style better suited for maritime ops center
@@ -93,27 +117,15 @@ export default function MapDisplay({ layerVisibility, onVesselClick }: MapDispla
 
     map.on('load', () => {
       if (!map.hasImage('vessel-arrow')) {
-        const size = 64
-        const canvas = document.createElement('canvas')
-        canvas.width = size
-        canvas.height = size
-        const context = canvas.getContext('2d')
-        if (!context) return
-
-        context.fillStyle = '#38bdf8'
-        context.strokeStyle = '#0f172a'
-        context.lineWidth = 3
-        context.beginPath()
-        context.moveTo(size / 2, 6)
-        context.lineTo(size - 10, size - 10)
-        context.lineTo(size / 2, size - 18)
-        context.lineTo(10, size - 10)
-        context.closePath()
-        context.fill()
-        context.stroke()
-
-        const imageData = context.getImageData(0, 0, size, size)
+        const imageData = drawVesselArrow('#38bdf8')
+        if (!imageData) return
         map.addImage('vessel-arrow', imageData, { pixelRatio: 2 })
+      }
+
+      if (!map.hasImage('vessel-arrow-selected')) {
+        const imageData = drawVesselArrow('#34d399')
+        if (!imageData) return
+        map.addImage('vessel-arrow-selected', imageData, { pixelRatio: 2 })
       }
 
       if (!map.getSource('vessels')) {
@@ -137,6 +149,24 @@ export default function MapDisplay({ layerVisibility, onVesselClick }: MapDispla
             'icon-pitch-alignment': 'map',
             visibility: layerVisibility.ais ? 'visible' : 'none',
           },
+        })
+      }
+
+      if (!map.getLayer('vessel-selected')) {
+        map.addLayer({
+          id: 'vessel-selected',
+          type: 'symbol',
+          source: 'vessels',
+          layout: {
+            'icon-image': 'vessel-arrow-selected',
+            'icon-size': 0.55,
+            'icon-allow-overlap': true,
+            'icon-rotate': ['coalesce', ['get', 'heading'], 0],
+            'icon-rotation-alignment': 'map',
+            'icon-pitch-alignment': 'map',
+            visibility: layerVisibility.ais ? 'visible' : 'none',
+          },
+          filter: ['==', ['get', 'mmsi'], selectedVessel ?? -1],
         })
       }
 
@@ -195,7 +225,17 @@ export default function MapDisplay({ layerVisibility, onVesselClick }: MapDispla
     if (!map) return
     if (!map.getLayer('vessel-icons')) return
     map.setLayoutProperty('vessel-icons', 'visibility', layerVisibility.ais ? 'visible' : 'none')
+    if (map.getLayer('vessel-selected')) {
+      map.setLayoutProperty('vessel-selected', 'visibility', layerVisibility.ais ? 'visible' : 'none')
+    }
   }, [layerVisibility.ais])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    if (!map.getLayer('vessel-selected')) return
+    map.setFilter('vessel-selected', ['==', ['get', 'mmsi'], selectedVessel ?? -1])
+  }, [selectedVessel])
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-2xl">

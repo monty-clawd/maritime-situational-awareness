@@ -20,10 +20,18 @@ export interface Vessel {
   mmsi: number
   imo?: number
   name?: string
+  callSign?: string
   flag?: string
   type?: string
+  length?: number
+  width?: number
   destination?: string
   lastPosition?: Position
+}
+
+export interface WatchlistEntry extends Vessel {
+  notes?: string | null
+  addedAt?: string
 }
 
 export interface Alert {

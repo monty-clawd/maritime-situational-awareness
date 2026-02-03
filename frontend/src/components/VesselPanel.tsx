@@ -1,4 +1,7 @@
-import type { Vessel } from '@/types/maritime'
+import { useMemo, useState } from 'react'
+import ActiveTargetsList from '@/components/ActiveTargetsList'
+import { addToWatchlist, removeFromWatchlist } from '@/services/api'
+import type { WatchlistEntry } from '@/types/maritime'
 import { formatKnots, formatLatLon } from '@/utils/format'
 
 type VesselPanelProps = {
@@ -6,45 +9,57 @@ type VesselPanelProps = {
   onSelect: (mmsi: number) => void
 }
 
-const demoVessels: Vessel[] = [
-  {
-    mmsi: 366982330,
-    imo: 9241061,
-    name: 'Pacific Sentinel',
-    flag: 'US',
-    type: 'Container',
-    destination: 'Los Angeles',
-    lastPosition: {
-      timestamp: new Date().toISOString(),
-      latitude: 34.245,
-      longitude: -120.121,
-      speed: 18.2,
-      heading: 246,
-      source: 'FUSED',
-      confidence: 0.93,
-    },
-  },
-  {
-    mmsi: 477123900,
-    name: 'Aegean Crest',
-    flag: 'HK',
-    type: 'Tanker',
-    destination: 'Long Beach',
-    lastPosition: {
-      timestamp: new Date().toISOString(),
-      latitude: 33.112,
-      longitude: -118.92,
-      speed: 11.4,
-      heading: 190,
-      source: 'AIS',
-      confidence: 0.88,
-    },
-  },
-]
-
 export default function VesselPanel({ selectedVessel, onSelect }: VesselPanelProps) {
-  const selectedVesselData =
-    selectedVessel === null ? null : demoVessels.find((vessel) => vessel.mmsi === selectedVessel) ?? null
+  const [watchlistEntries, setWatchlistEntries] = useState<WatchlistEntry[]>([])
+  const [refreshSignal, setRefreshSignal] = useState(0)
+  const [actionState, setActionState] = useState<'idle' | 'working'>('idle')
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const selectedEntry = useMemo(
+    () =>
+      selectedVessel === null
+        ? null
+        : watchlistEntries.find((vessel) => vessel.mmsi === selectedVessel) ?? null,
+    [selectedVessel, watchlistEntries],
+  )
+
+  const isTracked = selectedVessel !== null && watchlistEntries.some((vessel) => vessel.mmsi === selectedVessel)
+
+  const handleTrackToggle = async () => {
+    if (selectedVessel === null || actionState === 'working') return
+    setActionState('working')
+    setActionError(null)
+    try {
+      if (isTracked) {
+        await removeFromWatchlist(selectedVessel)
+      } else {
+        await addToWatchlist(selectedVessel)
+      }
+      setRefreshSignal((prev) => prev + 1)
+    } catch (err) {
+      setActionError('Unable to update watchlist.')
+    } finally {
+      setActionState('idle')
+    }
+  }
+
+  const statusBadge = isTracked ? 'Tracked' : 'Untracked'
+  const statusStyles = isTracked
+    ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+    : 'border-slate-700/80 bg-slate-900/80 text-slate-300'
+
+  const selectedName = selectedEntry?.name ?? 'Unknown'
+  const selectedType = selectedEntry?.type ?? 'Unknown'
+  const selectedPosition = selectedEntry?.lastPosition
+  const selectedCallSign = selectedEntry?.callSign ?? '--'
+  const selectedDestination = selectedEntry?.destination ?? '--'
+  const selectedFlag = selectedEntry?.flag ?? '--'
+  const selectedLength = selectedEntry?.length ? `${selectedEntry.length} m` : '--'
+  const selectedWidth = selectedEntry?.width ? `${selectedEntry.width} m` : '--'
+  const selectedImo = selectedEntry?.imo ? String(selectedEntry.imo) : '--'
+  const selectedAddedAt = selectedEntry?.addedAt
+    ? new Date(selectedEntry.addedAt).toLocaleString()
+    : '--'
 
   return (
     <section className="flex h-full flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
@@ -59,103 +74,99 @@ export default function VesselPanel({ selectedVessel, onSelect }: VesselPanelPro
           <>
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-50">{selectedVesselData?.name || 'Unknown'}</p>
+                <p className="text-sm font-semibold text-slate-50">{selectedName}</p>
                 <p className="text-xs text-slate-400">MMSI {selectedVessel}</p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                  {statusBadge}
+                </p>
               </div>
-              <span className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-cyan-200">
-                {selectedVesselData?.type ?? 'Unknown'}
-              </span>
+              <div className="flex flex-col items-end gap-2">
+                <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.2em] ${statusStyles}`}>
+                  {statusBadge}
+                </span>
+                <span className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-cyan-200">
+                  {selectedType}
+                </span>
+              </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-300">
               <div>
                 <p className="text-slate-500">Position</p>
-                <p>
-                  {selectedVesselData?.lastPosition
-                    ? formatLatLon(
-                        selectedVesselData.lastPosition.latitude,
-                        selectedVesselData.lastPosition.longitude
-                      )
-                    : '--'}
-                </p>
+                <p>{selectedPosition ? formatLatLon(selectedPosition.latitude, selectedPosition.longitude) : '--'}</p>
               </div>
               <div>
                 <p className="text-slate-500">Speed</p>
-                <p>{formatKnots(selectedVesselData?.lastPosition?.speed)}</p>
+                <p>{formatKnots(selectedPosition?.speed)}</p>
               </div>
               <div>
                 <p className="text-slate-500">Destination</p>
-                <p>{selectedVesselData?.destination ?? '--'}</p>
+                <p>{selectedDestination}</p>
               </div>
               <div>
                 <p className="text-slate-500">Source</p>
-                <p>{selectedVesselData?.lastPosition?.source ?? '--'}</p>
+                <p>{selectedPosition?.source ?? '--'}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Call sign</p>
+                <p>{selectedCallSign}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Flag</p>
+                <p>{selectedFlag}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Length / Width</p>
+                <p>
+                  {selectedLength} · {selectedWidth}
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-500">IMO</p>
+                <p>{selectedImo}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Added</p>
+                <p>{selectedAddedAt}</p>
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
               <span>Confidence</span>
-              <span>{((selectedVesselData?.lastPosition?.confidence ?? 0) * 100).toFixed(0)}%</span>
+              <span>{((selectedPosition?.confidence ?? 0) * 100).toFixed(0)}%</span>
             </div>
             <div className="mt-1 h-1.5 w-full rounded-full bg-slate-800">
               <div
                 className="h-1.5 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-300"
-                style={{ width: `${(selectedVesselData?.lastPosition?.confidence ?? 0) * 100}%` }}
+                style={{ width: `${(selectedPosition?.confidence ?? 0) * 100}%` }}
               />
+            </div>
+            {actionError ? (
+              <div className="mt-3 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                {actionError}
+              </div>
+            ) : null}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTrackToggle}
+                disabled={actionState === 'working'}
+                className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.2em] transition ${
+                  isTracked
+                    ? 'border-rose-400/60 bg-rose-500/10 text-rose-200 hover:border-rose-300'
+                    : 'border-emerald-400/60 bg-emerald-500/10 text-emerald-200 hover:border-emerald-300'
+                } ${actionState === 'working' ? 'cursor-wait opacity-60' : ''}`}
+              >
+                {actionState === 'working' ? 'Updating' : isTracked ? 'Untrack' : 'Track'}
+              </button>
             </div>
           </>
         )}
       </div>
-      <div className="space-y-3 overflow-auto pr-2">
-        {demoVessels.map((vessel) => (
-          <button
-            key={vessel.mmsi}
-            type="button"
-            onClick={() => onSelect(vessel.mmsi)}
-            className={`w-full rounded-xl border p-4 text-left transition ${
-              vessel.mmsi === selectedVessel
-                ? 'border-cyan-400/70 bg-cyan-500/10'
-                : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-50">{vessel.name || 'Unknown'}</p>
-                <p className="text-xs text-slate-400">MMSI {vessel.mmsi}</p>
-              </div>
-              <span className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-cyan-200">
-                {vessel.type ?? 'Unknown'}
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-              <div>
-                <p className="text-slate-500">Position</p>
-                <p>{vessel.lastPosition ? formatLatLon(vessel.lastPosition.latitude, vessel.lastPosition.longitude) : '--'}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Speed</p>
-                <p>{formatKnots(vessel.lastPosition?.speed)}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Destination</p>
-                <p>{vessel.destination ?? '--'}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Source</p>
-                <p>{vessel.lastPosition?.source ?? '--'}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-              <span>Confidence</span>
-              <span>{((vessel.lastPosition?.confidence ?? 0) * 100).toFixed(0)}%</span>
-            </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-slate-800">
-              <div
-                className="h-1.5 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-300"
-                style={{ width: `${(vessel.lastPosition?.confidence ?? 0) * 100}%` }}
-              />
-            </div>
-          </button>
-        ))}
-      </div>
+      <ActiveTargetsList
+        selectedVessel={selectedVessel}
+        onSelect={onSelect}
+        refreshSignal={refreshSignal}
+        onDataUpdate={setWatchlistEntries}
+      />
     </section>
   )
 }

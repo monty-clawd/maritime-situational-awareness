@@ -84,7 +84,11 @@ export default function Dashboard() {
         <div className="flex flex-col gap-6">
           <LayerControls layerVisibility={layerVisibility} onToggle={handleLayerToggle} />
           <div className="h-[55vh] min-h-[360px]">
-            <MapDisplay layerVisibility={layerVisibility} onVesselClick={handleVesselSelect} />
+            <MapDisplay
+              layerVisibility={layerVisibility}
+              onVesselClick={handleVesselSelect}
+              selectedVessel={selectedVessel}
+            />
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
