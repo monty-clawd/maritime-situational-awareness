@@ -10,6 +10,7 @@ import behavior from './behavior.js'
 import environment from './environment.js'
 import history from './history.js'
 import reports from './reports.js'
+import zones from './zones.js'
 
 const router = Router()
 
@@ -24,5 +25,6 @@ router.use('/behavior', behavior)
 router.use('/environment', environment)
 router.use('/history', history)
 router.use('/reports', reports)
+router.use('/zones', zones)
 
 export default router

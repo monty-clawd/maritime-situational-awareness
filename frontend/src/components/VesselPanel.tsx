@@ -148,6 +148,12 @@ export default function VesselPanel({ selectedVessel, onSelect, onViewHistory, a
                 <span className="font-semibold text-amber-100">Warning:</span> {String(integrityAlert.details)}
               </div>
             )}
+            {selectedEntry?.zoneId && (
+              <div className="mt-2 rounded border border-rose-500/30 bg-rose-950/40 px-3 py-2 text-xs text-rose-200 animate-pulse">
+                <span className="font-semibold text-rose-100">⚠ SENSITIVE AREA</span>
+                <div className="text-[10px] mt-1 opacity-80">Vessel is inside: {selectedEntry.zoneId}</div>
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-300">
               <div>
                 <p className="text-slate-500">Position</p>

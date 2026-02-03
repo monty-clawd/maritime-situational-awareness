@@ -8,6 +8,7 @@ import { checkIntegrity } from './discrepancy.js'
 import { reportSignalLoss, getInterferenceZones } from './integrity.js'
 import { analyzeBehavior } from './analysis.js'
 import { pool } from '../db/pool.js'
+import { checkZones, ZONES } from './zones.js'
 
 const AISSTREAM_URL = 'wss://stream.aisstream.io/v0/stream'
 // North Sea / English Channel area to comply with potential free tier limits
@@ -316,9 +317,12 @@ const handleMessage = (rawData: WebSocket.RawData) => {
     return
   }
 
+  const zoneId = checkZones(parsed.latitude, parsed.longitude)
+
   let vessel: Vessel = {
     mmsi: parsed.mmsi,
     name: parsed.vesselName,
+    zoneId,
     lastPosition: {
       timestamp: new Date().toISOString(),
       latitude: parsed.latitude,
@@ -330,6 +334,22 @@ const handleMessage = (rawData: WebSocket.RawData) => {
   }
 
   const existing = latestVessels.get(vessel.mmsi)
+
+  if (zoneId) {
+    const zone = ZONES.find((z) => z.id === zoneId)
+    // Alert on entry (if not previously in this zone)
+    if (zone && zone.type === 'RESTRICTED' && existing?.zoneId !== zoneId) {
+      broadcastAlert({
+        type: 'ZONE_ENTRY',
+        mmsi: vessel.mmsi,
+        zoneId: zoneId,
+        zoneName: zone.name,
+        severity: 'HIGH',
+        timestamp: new Date().toISOString(),
+      })
+    }
+  }
+
   vessel = analyzeBehavior(vessel, existing)
 
   // Integrity Check

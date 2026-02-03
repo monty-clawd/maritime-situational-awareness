@@ -28,6 +28,7 @@ export interface Vessel {
   destination?: string
   lastPosition?: Position
   isLoitering?: boolean
+  zoneId?: string
 }
 
 export interface WatchlistEntry extends Vessel {
@@ -84,4 +85,11 @@ export interface ShippingLane {
     tolerance: number
     maxSpeed: number
     minSpeed: number
+}
+
+export interface Zone {
+  id: string
+  name: string
+  type: 'RESTRICTED' | 'WARNING' | 'WIND_FARM'
+  geometry: GeoJSON.Polygon
 }

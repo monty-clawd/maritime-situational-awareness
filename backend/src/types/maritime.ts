@@ -23,6 +23,7 @@ export interface Vessel {
   lastPosition?: Position
   isLoitering?: boolean
   firstStationaryTime?: string
+  zoneId?: string
 }
 
 export interface Alert {

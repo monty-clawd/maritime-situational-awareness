@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { fetchVessels, fetchLanes, fetchWeather, getApiBaseUrl, type WeatherInfo } from '@/services/api'
+import { fetchVessels, fetchLanes, fetchWeather, fetchZones, getApiBaseUrl, type WeatherInfo } from '@/services/api'
 import { MaritimeWebSocket } from '@/services/websocket'
 import type { Vessel, InterferenceZone, ShippingLane } from '@/types/maritime'
 
@@ -12,6 +12,7 @@ type LayerVisibility = {
   alerts: boolean
   analysis: boolean
   weather: boolean
+  zones: boolean
 }
 
 type MapDisplayProps = {
@@ -36,6 +37,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
   const [vesselsByMmsi, setVesselsByMmsi] = useState<Record<number, Vessel>>({})
   const [interferenceZones, setInterferenceZones] = useState<InterferenceZone[]>([])
   const [lanes, setLanes] = useState<ShippingLane[]>([])
+  const [zonesData, setZonesData] = useState<GeoJSON.FeatureCollection | null>(null)
   const [weatherData, setWeatherData] = useState<WeatherInfo | null>(null)
   const [weatherLocation, setWeatherLocation] = useState<[number, number] | null>(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
@@ -259,6 +261,50 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
                 'line-opacity': 0.5
             },
             layout: { visibility: layerVisibility.analysis ? 'visible' : 'none' }
+        })
+      }
+
+      // Zones Source & Layers
+      if (!map.getSource('zones')) {
+        map.addSource('zones', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      }
+
+      if (!map.getLayer('zones-fill')) {
+        map.addLayer({
+          id: 'zones-fill',
+          type: 'fill',
+          source: 'zones',
+          paint: {
+            'fill-color': [
+              'match',
+              ['get', 'type'],
+              'RESTRICTED', '#ef4444', // Red for restricted
+              'WIND_FARM', '#f59e0b', // Amber for wind farms
+              '#3b82f6' // Blue default
+            ],
+            'fill-opacity': 0.2
+          },
+          layout: { visibility: layerVisibility.zones ? 'visible' : 'none' }
+        })
+      }
+
+      if (!map.getLayer('zones-line')) {
+        map.addLayer({
+          id: 'zones-line',
+          type: 'line',
+          source: 'zones',
+          paint: {
+            'line-color': [
+              'match',
+              ['get', 'type'],
+              'RESTRICTED', '#ef4444',
+              'WIND_FARM', '#f59e0b',
+              '#3b82f6'
+            ],
+            'line-width': 2,
+            'line-dasharray': [2, 1]
+          },
+          layout: { visibility: layerVisibility.zones ? 'visible' : 'none' }
         })
       }
 
@@ -516,6 +562,13 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
       })
       .catch(console.warn)
 
+    fetchZones()
+      .then((data) => {
+        if (!isActive) return
+        setZonesData(data)
+      })
+      .catch(console.warn)
+
     return () => {
       isActive = false
     }
@@ -536,6 +589,9 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     const lanesSource = map.getSource('lanes') as GeoJSONSource | undefined
     if (lanesSource) lanesSource.setData(lanesGeoJson)
     
+    const zonesSource = map.getSource('zones') as GeoJSONSource | undefined
+    if (zonesSource && zonesData) zonesSource.setData(zonesData)
+
     const weatherSource = map.getSource('weather') as GeoJSONSource | undefined
     if (weatherSource) weatherSource.setData(weatherGeoJson)
     
@@ -546,7 +602,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
             features: historyTrack ? [historyTrack] : []
         })
     }
-  }, [isMapLoaded, vesselGeoJson, interferenceGeoJson, lanesGeoJson, weatherGeoJson, historyTrack])
+  }, [isMapLoaded, vesselGeoJson, interferenceGeoJson, lanesGeoJson, weatherGeoJson, historyTrack, zonesData])
 
   // Update Layer Visibility
   useEffect(() => {
@@ -569,6 +625,12 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
     }
     if (map.getLayer('lanes-line')) {
       map.setLayoutProperty('lanes-line', 'visibility', layerVisibility.analysis ? 'visible' : 'none')
+    }
+    if (map.getLayer('zones-fill')) {
+      map.setLayoutProperty('zones-fill', 'visibility', layerVisibility.zones ? 'visible' : 'none')
+    }
+    if (map.getLayer('zones-line')) {
+      map.setLayoutProperty('zones-line', 'visibility', layerVisibility.zones ? 'visible' : 'none')
     }
     if (map.getLayer('weather-icon')) {
       map.setLayoutProperty('weather-icon', 'visibility', layerVisibility.weather ? 'visible' : 'none')
@@ -593,7 +655,7 @@ export default function MapDisplay({ layerVisibility, onVesselClick, onAlert, se
       <div className="pointer-events-none absolute bottom-6 left-6 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-300">
         {layerVisibility.ais ? 'AIS' : 'AIS Off'} · {layerVisibility.radar ? 'Radar' : 'Radar Off'} ·{' '}
         {layerVisibility.fused ? 'Fused' : 'Fused Off'} · {layerVisibility.alerts ? 'Alerts' : 'Alerts Off'} ·{' '}
-        {layerVisibility.analysis ? 'Analysis' : 'Analysis Off'}
+        {layerVisibility.analysis ? 'Analysis' : 'Analysis Off'} · {layerVisibility.zones ? 'Zones' : 'Zones Off'}
       </div>
     </div>
   )
